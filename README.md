@@ -27,7 +27,7 @@ Hedera (x402), 0G (Private Computer), World (IDKit or Agent Pass).
 | --- | --- |
 | Plan, job spec, task split | Done |
 | Smart contracts (stake, escrow, receipt) | Done: 67 Foundry tests passing, deployed to Hedera testnet |
-| API foundation: env validation, SQLite store, job state machine, `GET /api/health`, `POST/GET /api/jobs`, `GET /api/jobs/:id` | Done on branch `feat/api-foundation` (51 tests). Provider/verifier endpoints and live events still to do |
+| API: env validation, SQLite store, job state machine, jobs endpoints, provider registry (signed register + bearer token), matcher, task delivery, tile upload, signed claims with Merkle root, live SSE events | Done (92 tests, live run with two mock providers). On-chain `postClaim`, x402 payment check and World ID still to do |
 | x402 payment + escrow link | Not started |
 | Requester UI, live tile grid, receipt explorer | Not started |
 | Provider worker, verifier worker, job images | In progress (Misbah): deterministic render and echo job images (Go/Docker) and SHA-256/Merkle helpers are merged to `main`; the provider and verifier workers are still stubs |
@@ -64,7 +64,8 @@ npm run typecheck            # TypeScript check
 npm run lint
 npm test                     # vitest (no tests yet)
 npm run build
-npm run worker:provider      # provider worker (stub for now)
+npm run worker:mock          # mock provider: fake tiles, speaks the real protocol (dev only)
+npm run worker:provider      # real provider worker (stub for now)
 npm run worker:verifier      # verifier worker (stub for now)
 npm run agent                # scripted agent requester (stub for now)
 ```
@@ -99,6 +100,7 @@ docs/            job-spec, DEPLOY, and later QA, DEMO, 0G status, sponsor feedba
 
 ## Team and task lists
 
+- [docs/PROVIDER-PROTOCOL.md](docs/PROVIDER-PROTOCOL.md): how the provider worker talks to the API.
 - [MISBAH.md](MISBAH.md): Docker, heavy compute, provider and verifier workers, job images, 0G job.
 - [ANURAG.md](ANURAG.md): contracts, API, x402, World ID, HCS, frontend, scripted agent, docs.
 

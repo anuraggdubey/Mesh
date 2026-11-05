@@ -2,7 +2,8 @@ import { connection } from "next/server";
 import { json, jsonError, readJson } from "@/lib/api";
 import { MAX_INPUT_BYTES } from "@/lib/constants";
 import { getEnv } from "@/lib/env";
-import { buildJob, insertJob, listJobs, transitionJob, UnsupportedJobTypeError } from "@/lib/jobs";
+import { buildJob, getJob, insertJob, listJobs, transitionJob, UnsupportedJobTypeError } from "@/lib/jobs";
+import { tryAssignPending } from "@/lib/matcher";
 import { createJobBodySchema } from "@/lib/types";
 
 /** GET /api/jobs: most recent jobs (newest first). */
@@ -51,7 +52,8 @@ export async function POST(req: Request) {
 
   if (devSkip) {
     const paid = transitionJob(job.jobId, "paid");
-    return json(paid, 200, { "X-Mesh-Dev-Payment-Skipped": "true" });
+    tryAssignPending(); // hand it to any provider that is already online
+    return json(getJob(job.jobId) ?? paid, 200, { "X-Mesh-Dev-Payment-Skipped": "true" });
   }
 
   // x402 challenge. `extra.nonce` is the jobId so the payment is bound to this job.

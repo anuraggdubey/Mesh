@@ -12,6 +12,7 @@
     "format": "prettier --write .",
     "worker:provider": "tsx workers/provider/index.ts",
     "worker:verifier": "tsx workers/verifier/index.ts",
+    "worker:mock": "tsx workers/mock-provider/index.ts",
     "agent": "tsx scripts/agent.ts"
   },
   "dependencies": {

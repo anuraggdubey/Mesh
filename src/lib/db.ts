@@ -9,7 +9,10 @@ import { getEnv } from "./env";
  *   jobs         one row per job; `data` holds the full Job JSON, `status`/`created_at` are indexed copies
  *   job_events   append-only event log; replayed to the SSE stream and used for the audit trail
  *   job_tiles    tile bytes uploaded by providers (tile hashes live inside the job JSON too)
- *   used_nonces  x402 payment nonces already settled (replay protection, filled in a later step)
+ *   providers    registered provider machines (bearer-token auth, heartbeat, load)
+ *   tasks        tile assignments handed to providers
+ *   claims       provider-signed TileClaims (EIP-712), kept as audit evidence
+ *   used_nonces  x402 payment nonces and provider-register nonces already used (replay protection)
  */
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS jobs (
@@ -35,6 +38,44 @@ CREATE TABLE IF NOT EXISTS job_tiles (
   tile_hash TEXT NOT NULL,
   bytes     BLOB NOT NULL,
   PRIMARY KEY (job_id, idx)
+);
+
+CREATE TABLE IF NOT EXISTS providers (
+  address        TEXT PRIMARY KEY,   -- lowercase 0x address
+  provider_id    TEXT NOT NULL,
+  token_hash     TEXT NOT NULL,      -- sha256 of the bearer token
+  cores          INTEGER NOT NULL,
+  memory_gb      REAL NOT NULL,
+  os             TEXT NOT NULL,
+  arch           TEXT NOT NULL,
+  agent_version  TEXT NOT NULL,
+  world_nullifier TEXT,
+  registered_at  INTEGER NOT NULL,
+  last_seen      INTEGER NOT NULL,
+  load           REAL,
+  current_task   TEXT
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_providers_token ON providers(token_hash);
+
+CREATE TABLE IF NOT EXISTS tasks (
+  task_id      TEXT PRIMARY KEY,
+  job_id       TEXT NOT NULL,
+  provider     TEXT NOT NULL,        -- lowercase address
+  tiles        TEXT NOT NULL,        -- JSON array of tile indices
+  status       TEXT NOT NULL,        -- queued | delivered | done | failed
+  created_at   INTEGER NOT NULL,
+  delivered_at INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_tasks_provider ON tasks(provider, status);
+CREATE INDEX IF NOT EXISTS idx_tasks_job ON tasks(job_id);
+
+CREATE TABLE IF NOT EXISTS claims (
+  job_id        TEXT NOT NULL,
+  provider      TEXT NOT NULL,
+  tiles_digest  TEXT NOT NULL,
+  signature     TEXT NOT NULL,
+  created_at    INTEGER NOT NULL,
+  PRIMARY KEY (job_id, provider)
 );
 
 CREATE TABLE IF NOT EXISTS used_nonces (
@@ -75,10 +116,17 @@ export function closeDb(): void {
   }
 }
 
-/** Run `fn` inside a transaction; rolls back if it throws. */
+let txDepth = 0;
+
+/**
+ * Run `fn` inside a transaction; rolls back if it throws. Re-entrant: a nested call joins the outer
+ * transaction, so a failure anywhere rolls the whole thing back.
+ */
 export function transaction<T>(fn: (db: DatabaseSync) => T): T {
   const db = getDb();
+  if (txDepth > 0) return fn(db);
   db.exec("BEGIN IMMEDIATE");
+  txDepth = 1;
   try {
     const result = fn(db);
     db.exec("COMMIT");
@@ -86,5 +134,7 @@ export function transaction<T>(fn: (db: DatabaseSync) => T): T {
   } catch (err) {
     db.exec("ROLLBACK");
     throw err;
+  } finally {
+    txDepth = 0;
   }
 }

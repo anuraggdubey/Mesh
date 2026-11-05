@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   classifyFailure,
   computeTilesDigest,
+  createRegistrationNonce,
   signProviderClaim,
 } from "./worker";
 
@@ -31,6 +32,12 @@ describe("provider claim helpers", () => {
     expect(() =>
       computeTilesDigest([{ index: 0, tileHash: "not-a-hash" }]),
     ).toThrow("Invalid tile hash");
+  });
+
+  it("creates a fresh registration nonce accepted by the provider protocol", () => {
+    expect(createRegistrationNonce(1_800_000_000_000, "ab12cd34ef56ab78")).toBe(
+      "1800000000000-ab12cd34ef56ab78",
+    );
   });
 
   it("maps worker errors to the agreed failure enum", () => {

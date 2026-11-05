@@ -27,17 +27,24 @@ const FAILURE_LOG_BYTES = 4_000;
 export type ProviderRegistration = {
   address: Address;
   signature: Hex;
-  nonce: Hex;
+  nonce: string;
   cores: number;
   memoryGb: number;
   os: string;
   arch: string;
   agentVersion: string;
-  worldProof: unknown;
+  worldProof?: Record<string, unknown>;
 };
 
 export function sha256Hex(bytes: Uint8Array): string {
   return createHash("sha256").update(bytes).digest("hex");
+}
+
+export function createRegistrationNonce(
+  timestamp = Date.now(),
+  random = randomBytes(16).toString("hex"),
+): string {
+  return `${timestamp}-${random}`;
 }
 
 export function computeTilesDigest(
@@ -297,15 +304,17 @@ function requiredEnv(name: string): string {
   return value;
 }
 
-async function readWorldProof(): Promise<unknown> {
+async function readWorldProofOptional(): Promise<
+  Record<string, unknown> | undefined
+> {
   const path = process.env.PROVIDER_WORLD_PROOF_FILE;
-  if (!path) {
-    throw new Error(
-      "Set PROVIDER_TOKEN or PROVIDER_WORLD_PROOF_FILE (JSON from the World ID provider registration flow)",
-    );
-  }
+  if (!path) return undefined;
   try {
-    return JSON.parse(await readFile(path, "utf8"));
+    const value: unknown = JSON.parse(await readFile(path, "utf8"));
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      throw new Error("World proof must be a JSON object");
+    }
+    return value as Record<string, unknown>;
   } catch {
     throw new Error(`Could not read valid World ID proof JSON from ${path}`);
   }
@@ -398,7 +407,9 @@ export async function signProviderClaim(
   return { tilesDigest, signature };
 }
 
-export async function startProviderWorker(): Promise<void> {
+export async function startProviderWorker(
+  options: { signal?: AbortSignal } = {},
+): Promise<void> {
   const privateKeyValue = requiredEnv("PROVIDER_PRIVATE_KEY");
   const privateKey = (
     privateKeyValue.startsWith("0x") ? privateKeyValue : `0x${privateKeyValue}`
@@ -428,10 +439,12 @@ export async function startProviderWorker(): Promise<void> {
   const stop = () => abortController.abort();
   process.once("SIGINT", stop);
   process.once("SIGTERM", stop);
+  options.signal?.addEventListener("abort", stop, { once: true });
+  if (options.signal?.aborted) stop();
 
-  const proof = apiTokenPresent() ? undefined : await readWorldProof();
+  const proof = apiTokenPresent() ? undefined : await readWorldProofOptional();
   if (!apiTokenPresent()) {
-    const nonce = `0x${randomBytes(32).toString("hex")}` as Hex;
+    const nonce = createRegistrationNonce();
     const registrationMessage = `mesh-register:${nonce}`;
     const signature = await account.signMessage({
       message: registrationMessage,
@@ -538,6 +551,7 @@ export async function startProviderWorker(): Promise<void> {
           const collected = await runDockerTask(task, input, {
             cpus: process.env.PROVIDER_CPUS,
             memory: process.env.PROVIDER_MEMORY,
+            dockerCommand: process.env.PROVIDER_DOCKER_COMMAND,
             timeoutSeconds: Number(
               process.env.JOB_TIMEOUT_SECONDS ?? task.timeoutSeconds,
             ),
@@ -604,6 +618,7 @@ export async function startProviderWorker(): Promise<void> {
     await heartbeat;
     process.removeListener("SIGINT", stop);
     process.removeListener("SIGTERM", stop);
+    options.signal?.removeEventListener("abort", stop);
     log("Provider worker stopped");
   }
 }

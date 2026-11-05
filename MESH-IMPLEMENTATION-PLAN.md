@@ -176,10 +176,10 @@ Rules (verified on the Mumbai submission guidelines): select **up to 3** partner
 
 | Name | Owner | OS | Demo role |
 | --- | --- | --- | --- |
-| **PC A** | Misbah | Windows or Mac | **Requester** (also a provider for half the tiles) |
-| **PC B** | Anurag | The other OS | **Provider** (cheat mode available) |
+| **PC A** | Anurag | Windows or Mac | **Requester**: browser UI + scripted agent, API host (light work only) |
+| **PC B** | Misbah | The other OS | **Provider + verifier**: Docker, heavy processing, cheat mode |
 
-Swap once during testing so we prove it is not OS-specific.
+Anurag's laptop cannot handle heavy processing, so all Docker, rendering, and verifier recomputation run on Misbah's machine. Cross-OS determinism is proven with a **tiny test tile** run on both laptops. A second provider is a second agent instance, a friend's laptop, or a cloud VM (see `MISBAH.md` §10). Per-person task lists: `MISBAH.md` and `ANURAG.md`.
 
 Both machines need: Git, Node.js 20+, Docker Desktop **running**, a Hedera testnet wallet funded, the Mesh agent installed, World ID done once, same network (venue Wi‑Fi first, hotspot backup).
 
@@ -374,6 +374,8 @@ Write expected vs actual for each case in `docs/QA.md` as you go.
 ---
 
 ## 12. Work split
+
+**The detailed, current task lists are `MISBAH.md` (Docker, heavy processing, agent, verifier, 0G job) and `ANURAG.md` (contracts, API, x402, World ID, HCS, frontend, scripted agent, docs). Where the role descriptions below differ, those two files win.**
 
 Overlap is dangerous; interfaces are agreed below. If someone finishes early, take items from **Shared / stretch**, not the other person's core.
 

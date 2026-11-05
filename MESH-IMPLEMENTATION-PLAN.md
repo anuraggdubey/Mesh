@@ -1,15 +1,16 @@
-# Mesh — Implementation Plan
+# Mesh — Implementation Plan (v2)
 **ETHGlobal Mumbai 2026 · Misbah Ansari & Anurag**
 
-This document is the single source of truth for what we are building, why the blockchain is in it, how the two machines work, how the chain integrates, and who does what. Read it end to end before writing code. If something in chat disagrees with this file, update this file first, then the code.
+This document is the single source of truth for what we are building, why the blockchain is in it, how verification really works, how the chain integrates, and who does what. Read it end to end before writing code. If something in chat disagrees with this file, update this file first, then the code.
 
 - **Event:** ETHGlobal Mumbai 2026, Jio World Convention Centre, BKC
 - **Hacking starts:** 9:00 PM IST, Thursday 5 November 2026
 - **Submissions due:** 9:00 AM IST, Saturday 7 November 2026 — no late submissions
 - **Submit as:** Finalist + Partner Prizes
 - **Official prizes:** https://ethglobal.com/events/mumbai/prizes
-- **Official rules:** https://ethglobal.com/rules
-- **Repo:** create the git repository only after 9:00 PM IST on Thursday. Commit often. A single giant commit can get us disqualified. Write down every place AI tools helped.
+- **Official rules / submission guidelines:** https://ethglobal.com/rules and https://ethglobal.com/events/mumbai/info/details
+- **Repo:** https://github.com/anuraggdubey/Mesh (first commit was after kickoff, 21:06 IST). Commit often, small commits. A single giant commit can get us disqualified.
+- **Built from scratch.** No pre-existing code, site, design, or assets are reused. Anything we did not write during the event (libraries, SDKs, sponsor templates) is listed in the README.
 
 ---
 
@@ -17,437 +18,475 @@ This document is the single source of truth for what we are building, why the bl
 
 Mesh is a **verifiable compute marketplace**.
 
-People (or agents) who need processing power post a **job**. People who have spare capacity on their laptops run a **provider agent** and execute that job. That much exists in Web2 (a freelance board, a queue, a payment app).
+People (or agents) who need processing power post a **job**. People with spare capacity on their laptops run a **provider agent** and execute it. That much exists in Web2.
 
-What makes Mesh a blockchain product, and what we will demo, is this:
+What makes Mesh a blockchain product, and what we demo:
 
-> After a job runs, anyone can verify — without trusting Mesh’s server — that **this exact code** ran on **this exact input**, produced **this exact output**, was attested (when 0G is available), and that the provider who ran it had **stake on the line**. A fake or tampered run is **rejected and slashed**. An honest run produces an **on-chain compute receipt** other apps can look up later.
+> After a job runs, anyone can check — without trusting the provider's word — that **this exact code** ran on **this exact input** and produced **this exact output**; that the provider who ran it had **stake on the line**; and that a **fake or lazy run is caught and slashed**. An honest run leaves an **on-chain compute receipt** other apps can look up later.
 
-Payment exists, but it is not the headline. The headline is **proof + slashable stake + a public receipt**.
+Payment exists, but it is not the headline. The headline is **proof + slashable stake + a public receipt**, shown on real, visibly heavy computation.
 
-Reference UI / product story we already sketched: [meshcompute.vercel.app](https://meshcompute.vercel.app/). That site describes affordable spare-capacity compute (AI jobs, builds, image/video, scripts) and providers earning by sharing machines. We are building the **ETHGlobal version** of that idea: same marketplace, with verifiable execution instead of “trust us, then we pay you.”
-
-We are **not** building:
-
-- A Stripe/Razorpay clone that happens to use tokens
-- “User A sends tokens to user B after the work” as the only chain feature
-- A Bluetooth transaction mesh (different idea)
-- A full global cloud (isolation on untrusted machines at worldwide scale) in 36 hours
+We are **not** building: a Stripe clone with tokens; "A pays B after the work" as the only chain feature; a full global cloud with perfect isolation in 36 hours.
 
 We **are** building a real v1 of a product we can keep shipping after Mumbai.
 
+### 1.1 One sentence for judges
+
+"Mesh lets spare laptops run jobs for strangers, and the chain proves what ran, punishes a lie, and leaves a receipt anyone can check."
+
+### 1.2 What we claim and what we do not (say this out loud)
+
+| We claim | We do not claim |
+| --- | --- |
+| Provider signs a claim over image/input/output hashes; the claim is attributable and slashable | That the provider's machine is private or that jobs are hidden from the provider |
+| Deterministic jobs are checked by independent re-execution or sampling; a mismatch is slashed | That a single run is cryptographically proven (no ZK in v1) |
+| AI-inference jobs carry a TEE signature from 0G, verified on Hedera | That the TEE signature proves what prompt was asked — it proves the output came out of the TEE |
+| Verification is **optimistic with a challenge window**; in v1 a Mesh verifier key finalizes disputes | That Mesh is trustless. The verifier cannot forge a result; it can only finalize or reject, and every decision is public on chain |
+
+Overclaiming is the fastest way to lose a judge's trust. Winning projects at past events (Hands Unchained, AEGIS, Opti-om) stated their own limits openly.
+
 ---
 
-## 2. Why a blockchain (and why this is not “just Web2 escrow”)
-
-Web2 can already do: “I’ll pay 200 now, and 200 more when the job is done.” Stripe, UPI, cash, or a company holding funds in India or the US can do that. Judges will shrug if that is our only integration.
-
-The chain is required for things a company-in-the-middle cannot honestly offer:
+## 2. Why a blockchain (and not "just Web2 escrow")
 
 | Need | Why Web2 is not enough | What we put on chain |
 | --- | --- | --- |
-| Prove what ran | You must trust Mesh’s servers and the provider’s word | Attestation + input/output/job image hashes on a **compute receipt** |
-| Trust strangers with no company as bank | Escrow platforms hold the money and can freeze, censor, or disappear | Provider **stake** locked in a contract; **slash** if the proof is bad; **refund** if the job fails |
+| Prove what ran | Trust Mesh's servers and the provider's word | Signed claim + image/input/output hashes on a **receipt**; TEE signature for AI jobs |
+| Trust strangers, no company as bank | Escrow platforms can freeze, censor, or disappear | Provider **stake** locked in a contract; **slash** on proven fraud; **refund** on failure |
 | Machines / agents buy compute | Agents cannot open Stripe or UPI accounts | **x402 on Hedera**: pay inside the HTTP request, no checkout account |
-| One human ≠ fifty fake nodes | Email sign-ups are cheap to fake | **World ID** (unique human) for providers and requesters, verified on our server |
-| Other apps can reuse the result | A private database is not composable | Public **receipt** any contract or dApp can verify; output stored in a content-addressed way (**Arkiv** if we have time) |
-| Global, permissionless | “Works in the US or India because our company operates there” | Anyone with a wallet and a machine can request or provide, same rules everywhere |
+| One human is not fifty fake nodes | Email sign-ups are cheap | **World ID** unique-human check on providers and requesters, verified on our server |
+| Other apps can reuse the result | A private DB is not composable | Public **receipt** any contract can read; **HCS audit log** of every state change |
+| Global, permissionless | "Works where our company operates" | Anyone with a wallet and a machine can request or provide |
 
-**Lead demo sentence:** two laptops; an honest job that produces a verifiable receipt; a fake/tampered job that fails verification and gets slashed; a receipt anyone can look up on Hedera.
-
----
-
-## 3. Partner tracks we enter (max 3 partners)
-
-All of one partner’s tracks count as a single pick. Confirm the live text on the prizes page before submitting.
-
-1. **Hedera — “AI Agents That Pay: x402 on Hedera”** ($6,500 pool: $3,000 / $2,000 / $1,500)  
-   Payment rail for jobs (especially agent/machine payers). Hedera is EVM-compatible; escrow, stake, slash, and receipts are ordinary Solidity.
-
-2. **0G — “Build with 0G Private Computer”** ($5,000)  
-   Isolated / attested execution so “the other laptop actually ran our code” is not a trust-me story. If 0G tooling blocks us on night one, we ship Docker isolation first, keep an attestation slot in the UI, and plug 0G in as soon as it works. Do not let 0G block the live loop.
-
-3. **World — IDKit** (2 teams × $1,250), and **World ID Agent Pass** ($5,000) if the requester can be an agent  
-   Unique humans (and a full verify → approved action plus a denied path, checked on the server — World says a login screen alone does not count).
-
-**Optional if time (do not burn a pick unless the work is real):**
-
-- **ENS — Best Use of ENSv2** ($7,000): machine names such as `pcb.mesh.eth`
-- **Arkiv — Build from scratch / mirror**: store job outputs as content-addressed artifacts so our API is not the only copy
-
-When submitting, also opt into **Finalist + Partner Prizes**. Judges score technicality, originality, practicality, usability, and WOW.
+**Lead demo sentence:** two laptops split a heavy render; an honest run produces a receipt; a cheating run is caught, slashed, and refunded; everything is on HashScan.
 
 ---
 
-## 4. Roles: two machines (PC A and PC B)
+## 3. The verification model (the heart of the project)
 
-We test and demo on **two different operating systems**.
+This section is the part judges will probe in Q&A. Everything else supports it.
 
-| Name | Owner | OS | Role in the demo |
+### 3.1 The problem
+
+If the provider reports `outputHash`, nothing stops it from reporting a consistent fake. A hash alone proves nothing about execution. So Mesh uses **three layers**:
+
+1. **Signed claim.** The provider signs `(jobId, imageHash, inputHash, outputHash, merkleRoot)` with its staked key. A lie is now attributable and slashable.
+2. **Independent check.** The verifier recomputes some or all of the work and compares (modes below).
+3. **Challenge window.** A receipt is `pending`, then `final` after the window. A mismatch inside the window means slash + refund.
+
+### 3.2 Two verification modes
+
+| Job class | Example | How it is checked |
+| --- | --- | --- |
+| **Deterministic** | tiled render, matrix multiply, hashing | **Spot-check re-execution** of random tiles/chunks, plus Merkle proofs; exact match required |
+| **Non-deterministic** | AI inference | **TEE attestation** from 0G Private Computer; Hedera contract verifies the signature. Re-running cannot match, so attestation is the only honest check |
+
+### 3.3 Determinism contract (so Windows and Mac produce identical hashes)
+
+- Jobs use **integer / fixed-point arithmetic only** — no floating point in anything we hash.
+- One platform: `linux/amd64` for every job image. Apple Silicon runs it with `--platform linux/amd64` (slower, same bytes). Pick one and never change it.
+- Image referenced by **digest** (`sha256:...`), not tag. Agent refuses a mismatch.
+- Hash function: SHA-256, lowercase hex, over raw bytes. Merkle tree over per-tile hashes (binary, SHA-256, sorted by tile index).
+- Cross-OS test: same job, both directions, identical `merkleRoot`.
+
+### 3.4 Spot-check and stake economics
+
+For a deterministic job with `n` tiles, a cheater computes a fraction `f` wrongly. The verifier recomputes a random sample of `k` tiles (sampling rate `s = k/n`). Probability of catching at least one bad tile:
+
+`P(detect) = 1 − (1 − f)^k`  (for sampling without replacement this is slightly higher)
+
+Example: `n = 100`, `f = 10%` cheated tiles, sample `k = 20` → `P ≈ 88%`. Cheat 30% of tiles → `P ≈ 99.9%`.
+
+**Stake rule:** `stake ≥ (value of work skipped) / P(detect)`. A rational provider will not cheat when expected loss exceeds expected gain. State this in the demo; it is the answer to "why would anyone be honest?"
+
+Verifier sampling is **seeded after the claim is posted** (seed = blockhash/HCS sequence at claim time) so the provider cannot predict which tiles will be checked.
+
+### 3.5 Optional stronger check: Freivalds (matrix multiply)
+
+For a matrix job `C = A·B`, the verifier checks with Freivalds' algorithm: pick a random vector `r`, test `A(Br) == Cr` in O(n²) instead of O(n³). Each round has false-accept probability ≤ 1/2; 20 rounds ≈ 2⁻²⁰. Real verification without re-execution and without a TEE. Use mod-prime integer matrices so results are exact.
+
+### 3.6 Fraud flow
+
+1. Provider posts a signed claim → receipt `pending`; escrow stays locked.
+2. Verifier samples and recomputes. All match → after the challenge window, receipt `final`, escrow released.
+3. Any mismatch → verifier posts a **fraud result** (tile index, expected hash, claimed hash, Merkle proof) → provider slashed, requester refunded, receipt marked `rejected`.
+4. Slashed stake split: part to requester as compensation, part to verifier as reward, remainder burned or kept in the pool (pick one, document it).
+
+### 3.7 What can still go wrong (list it in the README)
+
+- A colluding verifier + provider can finalize a bad result. Mitigation (post-Mumbai): multiple verifiers, anyone may challenge during the window.
+- Provider can see job inputs. Mitigation (post-Mumbai): encrypted inputs, TEE-hosted providers.
+- Docker is not a hard security boundary; it protects PC B from accidents and bad jobs, not from a determined escape.
+
+---
+
+## 4. Job types (what we actually compute)
+
+The demo needs **hard, visible computation**, not "echo hello." Ship in this order.
+
+### 4.1 `render` — primary demo job (must ship)
+
+Tiled **fixed-point Mandelbrot / ray-traced scene**, split into tiles (e.g. 8×8 = 64 tiles, deep iteration counts so it takes real seconds of CPU).
+
+- Visibly heavy: CPUs spike, tiles complete one by one, the image assembles live on the requester's screen.
+- **Both laptops are providers**: PC A gets half the tiles, PC B the other half.
+- Each tile hashed; `outputHash` = Merkle root of all tile hashes; per-tile data stored off chain by the API.
+- Cheat mode on PC B (dev flag): blur / interpolate / skip some tiles. Spot-check catches it.
+- One bad tile can be shown on chain with a Merkle proof.
+
+### 4.2 `matmul` — second job (stretch, strong correctness story)
+
+Large integer (mod-p) matrix multiply with Freivalds verification (§3.5). Less visual; show a progress bar and the "false-accept 2⁻²⁰" line.
+
+### 4.3 `infer` — private inference via 0G (must ship if 0G is a pick)
+
+A small model call routed through **0G Private Computer** (OpenAI-compatible API). The receipt for this job is valid **only if** 0G's TEE signature verifies on Hedera. Without 0G this job type has no verification at all, so 0G is load-bearing, not decoration. Record the 0G **request ID** on the receipt and in the UI. See §7.
+
+### 4.4 `echo` — sanity job
+
+`echo hello` for the no-chain smoke test only. Never demo it.
+
+---
+
+## 5. Partner tracks we enter (max 3 partners, confirmed)
+
+Rules (verified on the Mumbai submission guidelines): select **up to 3** partner prizes; multiple tracks of one partner count as one pick. Partner-only judging uses the materials we submit; booth visits are optional. Confirm live prize text before submitting.
+
+1. **Hedera — "AI Agents That Pay: x402 on Hedera"** ($6,500: $3,000 / $2,000 / $1,500)
+   Requirements from the prize page: at least one x402-protected endpoint settling on Hedera (testnet or mainnet) via a listed facilitator (Official x402, Ax402, Blocky402) or our own; **an agent/client completes one paid request end to end with no human approving**; public README covering setup, architecture, payment flow and a **settled Hedera transaction ID**; demo video ≤ 5 min linking to HashScan.
+   Extra points we plan to take: spending controls (budget, per-job cap, allowlist); **HCS topic as tamper-evident audit log**; ERC-8004 / HCS-14 identity if time; Hedera Agent Kit if time.
+   Consequence: the **scripted agent requester is core**, not stretch.
+
+2. **0G — "Build with 0G Private Computer"** ($5,000: $2,500 / $1,500 / $1,000)
+   Requirements: inference on 0G Private Computer **in the main flow with request IDs**, working app, one sentence on **what breaks without 0G**, demo video under 3 min + live link, contract addresses. 0G does not want generic chat wrappers or an AI call that can be removed unnoticed. Our answer: the `infer` job's verification is the 0G signature; remove 0G and the receipt cannot be validated.
+   If 0G tooling blocks us: ship `render` + Hedera + World first, keep `infer` as the next job, never fake an attestation, and write `docs/OG-STATUS.md`.
+
+3. **World** — one of:
+   - **Best Use of IDKit** (2 teams × $1,250): use the **minimum sufficient credential** (likely Proof of Human); IDKit in a working flow; server or on-chain verification; explain the trust event; one success path and one alternative path; short debrief.
+   - **World ID Agent Pass** ($5,000: $2,500 / $1,500 / $1,000): official Agent Pass integration; full request → completion → validated result → protected action; a **denied/expired/cancelled** path where the action does not happen; validation in a secure backend; integration debrief.
+   Plan: use IDKit to gate providers (one human, one provider profile) and Agent Pass to authorize the scripted agent requester. Decide the final single pick after reading the live pages Friday morning. Proofs in the sandbox use fake identities; do not claim production Sybil resistance.
+
+**Optional only if the core is done** (does not take a pick unless the work is real): Arkiv "build from scratch" ($4,000; job board/claims that expire, plus `schema.md` and `friction.md`). **ENS is cut**: ENSv2 must be central to the product; a name in an activity feed will not place.
+
+**Judging categories we write toward** (all submissions): Technicality, Originality, Practicality, Usability, WOW. Finalist session: 7 minutes (4 demo, 3 judge Q&A).
+
+---
+
+## 6. Roles: two machines (PC A and PC B)
+
+| Name | Owner | OS | Demo role |
 | --- | --- | --- | --- |
-| **PC A** | Misbah | One of Windows or Mac | **Requester**: posts the job, pays, sees the receipt |
-| **PC B** | Anurag | The other OS | **Provider**: runs the Mesh agent, executes the job in a container |
+| **PC A** | Misbah | Windows or Mac | **Requester** (also a provider for half the tiles) |
+| **PC B** | Anurag | The other OS | **Provider** (cheat mode available) |
 
-Swap once during testing (Misbah’s laptop becomes provider, Anurag’s becomes requester) so we prove it is not OS-specific.
+Swap once during testing so we prove it is not OS-specific.
 
-Both machines need:
+Both machines need: Git, Node.js 20+, Docker Desktop **running**, a Hedera testnet wallet funded, the Mesh agent installed, World ID done once, same network (venue Wi‑Fi first, hotspot backup).
 
-- Git, Node.js 20+, Docker Desktop **running**
-- A Hedera testnet wallet funded with test tokens
-- The Mesh provider agent installed
-- World ID completed once (unique human)
-- Same network: venue Wi‑Fi first, phone hotspot as backup
-
-If Docker is painful on one machine, the fallback job type is a Node or Python script that runs on **both** OS runtimes (resize an image, hash a file, run a tiny inference). No Windows-only or Mac-only demo jobs.
+If Docker is painful on one machine, fall back to a Node/WASM job runner that gives identical integer results on both OS runtimes. No OS-specific demo jobs.
 
 ---
 
-## 5. How compute actually works (PC A ↔ matcher ↔ PC B)
+## 7. How compute works (PC A ↔ API ↔ PC B)
 
 ```
-PC A (Requester)                    Mesh API / Matcher                 PC B (Provider)
-     |                                      |                                 |
-     | 1. World ID verify (server-side)     |                                 |
-     | 2. POST /jobs  {image, input, pay}   |                                 |
-     | 3. HTTP 402 Payment Required  -------|                                 |
-     | 4. Pay via x402 on Hedera            |                                 |
-     | 5. Escrow locks stake-aware payment  |                                 |
-     |                                      | 6. Job queued                   |
-     |                                      | 7. PC B agent polls / assigned  |
-     |                                      |------------------------------>  |
-     |                                      | 8. Pull job image (hash X)      |
-     |                                      | 9. Run in Docker (and 0G TEE    |
-     |                                      |    when available)              |
-     |                                      | 10. Output hash Z, attestation  |
-     |                                      |<-----------------------------   |
-     |                                      | 11. Verify attestation + hashes |
-     | 12. Compute receipt posted on-chain  |                                 |
-     | 13. Escrow releases to provider      |                                 |
-     |     OR refund + slash on failure     |                                 |
-     | 14. PC A displays result + receipt   |                                 |
+Requester (agent or UI)      Mesh API / Verifier              Provider(s)
+   | 1. World ID / Agent Pass check (server)                      |
+   | 2. POST /jobs {image, input, params}                         |
+   | 3. HTTP 402 + payment instructions (payTo = escrow) -------->|
+   | 4. x402 payment on Hedera (nonce = jobId)                    |
+   | 5. Facilitator verifies, replay-checks, escrow locks         |
+   |                              | 6. Job split into tiles, assigned
+   |                              |---------------------------->  |
+   |                              | 7. Pull image (digest), run in Docker
+   |                              |<---- tile hashes + signed claim
+   |                              | 8. Receipt posted as PENDING   |
+   |                              | 9. Seeded spot-check recompute |
+   | 10. Live image / result      | 10. Window passes: FINAL, release
+   |                              |     or FRAUD: slash + refund   |
+   | 11. Receipt + HCS audit trail visible on HashScan            |
 ```
 
-### 5.1 Job
+### 7.1 Job object (stored by API, referenced on chain by `jobId`)
 
-A job is a JSON object, stored by the API and referenced on-chain by `jobId`:
+- `jobId`, `type` (`render | matmul | infer | echo`), `mode` (`deterministic | attested`)
+- `requester` (address + World ID nullifier hash, server-checked), `providers[]` (set on assignment)
+- `imageRef` + `imageHash` (container digest); `inputRef` + `inputHash`; `params` (tile count, iterations, seed)
+- `tiles[]`: `{index, provider, tileHash, status}`
+- `merkleRoot` (render/matmul) or `0gRequestId` + `attestation` (infer)
+- `claimSig` (provider-signed claim); `verifier` seed + sample indices + result
+- `price`, `stakeRequired`, `timeoutSeconds`
+- `status`: `created | paid | assigned | running | pending | final | challenged | rejected | slashed | refunded | expired`
+- `receiptTx`, `hcsSequence`
 
-- `jobId`
-- `requester` (address + World ID nullifier hash, server-checked)
-- `provider` (filled when assigned)
-- `imageRef` + `imageHash` (what code to run — container digest)
-- `inputRef` + `inputHash` (what data to run it on)
-- `outputRef` + `outputHash` (filled when done)
-- `maxPrice` / `price`
-- `timeoutSeconds`
-- `status`: `created | paid | assigned | running | succeeded | failed | slashed | refunded | expired`
-- `attestation` (0G / TEE payload or `null`)
-- `receiptTx` (Hedera transaction id of the compute receipt)
+### 7.2 Execution on a provider
 
-### 5.2 Execution on PC B
+1. Receive job; verify `imageHash` after pulling (refuse on mismatch).
+2. Verify `inputHash` before running.
+3. `docker run --rm --network none --platform linux/amd64` with CPU/memory limits and a timeout.
+4. Per tile: write output, compute `tileHash`.
+5. Sign the claim; POST to the API.
+6. On failure report reason: `timeout | crash | hash_mismatch | attestation_missing | killed`.
+7. The agent never decides success. API + contract do.
 
-1. Agent receives job, verifies `imageHash` after pulling the image (digest must match; if not, refuse and fail the job).
-2. Writes input to a workspace directory; computes `inputHash`; refuses if it does not match the job.
-3. Runs `docker run --rm --network none ...` (no outbound network unless the job type needs it; default is none).
-4. Resource caps: CPU and memory limits so a bad job cannot freeze PC B.
-5. On success: write output, compute `outputHash`, collect attestation if 0G ran the job, POST result to the API.
-6. On failure: exit code, logs (truncated), reason `timeout | crash | hash_mismatch | attestation_missing | killed`.
-7. Agent never signs a “success” without hashes. The **API + contract** decide success, not the provider’s word.
+### 7.3 Isolation levels (ship in this order)
 
-### 5.3 Isolation levels (ship in this order)
-
-1. **Must have:** Docker isolation + image/input/output hashes.
-2. **Should have:** 0G Private Computer attestation of the executed image and output.
-3. **Nice:** encrypted input in transit (TLS is enough for the hack; full provider-blind encryption is post-Mumbai).
-
-Judges should hear us say honestly: Docker stops accidental messes and gives us hashes; 0G attestation is what makes “don’t trust the other laptop” real. If 0G is missing, we still show hash binding and slash on mismatch, and we label attestation as in progress — we do not fake an attestation. Faking a proof can get us disqualified.
+1. **Must:** Docker isolation + hashes + signed claims + spot-check re-execution.
+2. **Should:** 0G attestation for `infer`.
+3. **Nice:** encrypted inputs (TLS only for the hack).
 
 ---
 
-## 6. On-chain design (Hedera testnet)
+## 8. On-chain design (Hedera testnet)
 
-Hedera because it is EVM-compatible and because x402 is an explicit Mumbai track. Use testnet only.
+Hedera because it is EVM-compatible and x402 is an explicit Mumbai track. Testnet only. Keep contracts small; emit rich events.
 
-### 6.1 Contracts (Solidity)
+### 8.1 Contracts (Solidity, Foundry)
 
-**`MeshReceipt.sol`** — the product.
+**`MeshReceipt.sol`**
+- `postClaim(jobId, imageHash, inputHash, merkleRoot, provider, requester, claimSig)` → `pending`, starts challenge window.
+- `finalize(jobId)` after the window → `final`.
+- `postFraud(jobId, tileIndex, expectedHash, claimedHash, merkleProof)` (verifier-only in v1) → `rejected`, triggers slash/refund.
+- `postAttested(jobId, ..., teeSig)` for `infer`: contract `ecrecover`s 0G's signature over the output digest and checks the signer against a configured 0G signer address. (Pattern: a Hedera contract verifying the TEE signature on an AI result. We implement it ourselves.)
+- Append-only; `getReceipt(jobId)` public; events `ClaimPosted`, `ReceiptFinal`, `FraudProven`.
 
-- `postReceipt(jobId, imageHash, inputHash, outputHash, provider, requester, attestationHash, result)`  
-  Only callable by the Mesh verifier (our backend key **or**, better, after on-chain checks we can justify).
-- Emits `ReceiptPosted`.
-- Anyone can `getReceipt(jobId)`.
-- Receipts are append-only. We never overwrite history.
+**`MeshStake.sol`**
+- `stake()` (HBAR or test token), `unstake()` after delay, `slash(provider, jobId, amount, reason)` callable only by the receipt contract.
+- Stake minimum scales with job value per the §3.4 rule.
+- Provider must hold a World-ID-verified profile (checked off chain; nullifier stored to prevent two profiles per human).
 
-**`MeshStake.sol`** — provider skin in the game.
+**`MeshEscrow.sol`**
+- Locked on x402 payment confirm (payTo = escrow, nonce = `jobId`).
+- `release(jobId)` only if receipt is `final`; `refund(jobId)` if `rejected | failed | expired`. Mutually exclusive, reentrancy-guarded.
 
-- Provider `stake()` with test tokens (minimum we pick, e.g. a small HBAR or test USDC amount).
-- Provider must be World ID verified off-chain before we let them register; store `nullifierHash` to prevent two provider profiles per human.
-- `slash(provider, jobId, reason)` if verification fails (tampered image, missing/invalid attestation when required, claimed success without matching hashes).
-- `unstake()` after an unlock delay (can be short on testnet).
+**`MockStable.sol`** only if Hedera test USDC is not usable.
 
-**`MeshEscrow.sol`** — settlement after verification, **not** the story.
+### 8.2 HCS audit log
 
-- Requester payment locked when the x402 payment confirms.
-- `release(jobId)` to provider only if a **successful receipt** exists.
-- `refund(jobId)` if status is failed / expired / invalid proof.
-- `release` and `refund` are mutually exclusive (reentrancy guards, checked status).
+Every state change (paid, assigned, claim, sample seed, verdict, slash, release) is published to a Hedera Consensus Service topic. Anyone can replay the full history of a job from the topic, independent of our API. This is an explicit Hedera extra-points item and strengthens the "don't trust our server" story.
 
-**`MockStable.sol`** (if needed) — a test ERC-20 if we are not using Hedera’s test USDC.
+### 8.3 x402 flow
 
-Keep contracts small. No upgrade proxy unless we have spare time. Emit rich events so the UI can show a live feed of hashes and slashes.
+1. `POST /jobs` without payment → `402` with payment instructions (amount, asset, `payTo = escrow`, nonce = `jobId`).
+2. Client retries with the x402 payment header.
+3. Facilitator verifies the Hedera payment, **checks replay** (same nonce cannot pay twice), marks the job `paid`, locks escrow.
+4. Only then is the job eligible for assignment.
 
-### 6.2 x402 flow
+**Scripted agent requester (core):** a small script with a wallet, a budget, a per-job cap, and an allowlist of image digests posts a job, pays via x402 with **no human clicking**, and waits for a receipt. A human UI exists too, but the agent is the Hedera-track demo.
 
-x402 means “HTTP 402 Payment Required”: the client pays inside a normal web request, no checkout page.
+**Spending controls (extra points):** max budget, per-job cap, allowed providers/images, human-approval threshold above a limit.
 
-1. `POST /jobs` without payment → `402` with payment instructions (amount, asset, pay-to, job nonce).
-2. Client retries with the x402 payment payload / header.
-3. Our **facilitator** (a small service) verifies the Hedera payment, checks **replay** (same nonce cannot pay twice), then marks the job `paid` and locks escrow.
-4. Only then is the job eligible to be assigned to PC B.
+### 8.4 World ID
 
-If the requester is a human demo wallet, we still use x402 so the integration is real — but we **describe** it as “machines and agents can pay the same way, with no Stripe account.” If we have time, a tiny scripted agent requester (no UI click) is a strong extra clip.
+- Verify **on our server**, not only in the browser.
+- Protected actions: `register-provider`, `create-job` (and agent authorization if Agent Pass).
+- Required **denied path**: expired / cancelled / invalid proof → action does not happen. Show both paths.
+- Short debrief written for the sponsor.
 
-### 6.3 World ID
+### 8.5 0G Private Computer (`infer` job)
 
-World’s brief (especially Agent Pass / IDKit):
-
-- Full verify flow that ends in a **protected action** (creating a job, or registering as provider).
-- A **denied / expired / cancelled** path where the action does **not** happen.
-- Verification checked on **our server**, not only in the browser.
-- A short feedback note on the integration for submission.
-
-We implement both the happy path and the denied path, and we show both in the demo.
-
-### 6.4 0G Private Computer
-
-Goal: job execution inside a TEE (a sealed environment the operator should not see into). We ask 0G for:
-
-- How to submit a workload
-- What attestation we get back (signature over image/input/output hashes)
-- How we verify that attestation in our API before calling `postReceipt` / `release`
-
-If docs or SDKs stall us: Docker path remains the runner; the receipt’s `attestationHash` stays empty; verification still checks image/input/output hashes; we say this clearly. We never invent a fake attestation.
-
-### 6.5 ENS and Arkiv (optional)
-
-- ENS: `pca.mesh.eth` / `pcb.mesh.eth` or `anurag.mesh.eth` shown in the activity feed.
-- Arkiv: upload output bytes, store the Arkiv pointer on the receipt so “download result” does not depend only on our API.
+- Workload: a small model call through 0G's OpenAI-compatible endpoint.
+- Capture: request ID, TEE-signed response, signer address.
+- Verify: API checks the signature, then Hedera contract `ecrecover`s it on `postAttested`.
+- Honest limit (say it): the signature proves the output came from 0G's TEE, not what prompt produced it.
+- If blocked: `docs/OG-STATUS.md` listing exactly what blocked us; no fake proofs.
 
 ---
 
-## 7. Repository and framework choices
-
-Monorepo (recommended):
+## 9. Repository and framework choices
 
 ```
 mesh/
-  README.md          ← short; this plan can live at docs/IMPLEMENTATION-PLAN.md
+  README.md                ← setup, architecture, payment flow, Hedera tx ID, honest limits
+  AI.md                    ← every file/feature AI wrote or substantially edited
   docs/
+    IMPLEMENTATION-PLAN.md ← this file (or keep at repo root)
+    QA.md  DEMO.md  OG-STATUS.md  FEEDBACK-*.md
   apps/
-    web/             ← Next.js (App Router) + TypeScript + Tailwind
-                       Requester dashboard + provider status + receipt explorer
-    api/             ← Node.js (Hono or Nest-light or Next route handlers)
-                       Job queue, x402 facilitator hooks, World ID verify, 0G verify
-    agent/           ← Node.js CLI + long-running worker on PC B (and PC A when swapped)
+    web/    Next.js + TypeScript + Tailwind: requester UI, live render, receipt explorer, provider panel
+    api/    Node (Hono or Next route handlers): jobs, x402 facilitator, World verify, verifier, HCS publisher
+    agent/  Node CLI + worker: provider runtime; scripted agent requester lives in packages/sdk
   packages/
-    shared/          ← types: Job, Receipt, hashes
-    sdk/             ← tiny TS client: createJob, waitForReceipt
-  contracts/         ← Foundry (Solidity) for Hedera EVM
+    shared/ types, ABIs, chain IDs, hash/Merkle helpers
+    sdk/    createJob, payX402, waitForReceipt; scripted agent
+  contracts/  Foundry
   jobs/
-    echo/            ← sample job image: write input to output (sanity)
-    resize/          ← sample: image resize (visible WOW)
-    infer/           ← optional tiny model if time
-  .github/           ← not required for the hack
+    echo/  render/  matmul/  infer/
 ```
 
-**Why this stack**
+**Stack:** TypeScript everywhere; Next.js for a demo-ready UI; Foundry for tests we can show; Docker for cross-OS jobs; Hedera JSON-RPC with viem/ethers; Hedera SDK for HCS.
 
-- TypeScript everywhere so Misbah and Anurag share types.
-- Next.js for a fast, demo-ready UI.
-- Foundry for tests (`forge test`) we can show.
-- Docker for cross-OS jobs.
-- Hedera JSON-RPC so ethers.js / viem work as on any EVM chain.
-
-**Environment variables** (never commit secrets; use `.env.example`):
-
-- `HEDERA_RPC_URL`, `HEDERA_CHAIN_ID`, `DEPLOYER_PRIVATE_KEY`
+**Environment variables** (never commit secrets; `.env.example` committed):
+- `HEDERA_RPC_URL`, `HEDERA_CHAIN_ID`, `DEPLOYER_PRIVATE_KEY`, `HEDERA_OPERATOR_ID/KEY`, `HCS_TOPIC_ID`
 - `RECEIPT_ADDRESS`, `STAKE_ADDRESS`, `ESCROW_ADDRESS`
 - `WORLD_ID_APP_ID`, `WORLD_ID_ACTION`, `WORLD_ID_VERIFY_SECRET`
 - `X402_FACILITATOR_URL` (or in-process)
-- `OG_API_KEY` / endpoint (if any)
-- `API_PUBLIC_URL` (PC A and PC B must reach this — use a tunnel like Cloudflare Tunnel or a laptop hotspot + LAN IP if needed)
+- `OG_API_KEY` / endpoint, `OG_SIGNER_ADDRESS`
+- `VERIFIER_PRIVATE_KEY`, `API_PUBLIC_URL` (reachable from both PCs; tunnel or hotspot LAN IP)
 
-**AI use:** keep `AI.md` listing which files/features an AI assistant wrote or substantially edited (ETHGlobal requires documenting AI help).
-
----
-
-## 8. Saturday demo script (4 minutes)
-
-Judges score WOW. Do this script, nothing longer.
-
-1. **(15s)** One sentence: “Mesh is verifiable spare compute — not payday for freelancers.”
-2. **(45s)** PC A posts a visible job (image resize or similar). Show World ID approved.
-3. **(45s)** PC B’s terminal/UI shows the job pulled, image hash match, container running.
-4. **(45s)** Result appears on PC A. Show on-chain receipt: image/input/output hashes + tx.
-5. **(60s)** Repeat with a **tampered** path (wrong image or skipped attestation). Verification fails. Escrow refunds. Provider is slashed. Show both transactions.
-6. **(30s)** Optional: denied World ID path, or a scripted agent paying via x402 with no checkout UI.
-
-Backup: a pre-recorded 720p video of the same flow if venue Wi‑Fi dies. Demo video for submission: 2–4 minutes, 720p+, our own voice, not filmed on a shaky phone if we can avoid it.
+**AI use:** keep `AI.md`. ETHGlobal allows AI with attribution but submissions that rely entirely on AI without meaningful team contribution may lose partner-prize and finalist eligibility. If we use spec-driven workflows, spec files go in the repo.
 
 ---
 
-## 9. Testing workflow (do not skip)
+## 10. Demo script (4 minutes) and Q&A prep
+
+Finalist session = 4 min demo + 3 min Q&A. Submission video = 2–4 minutes, at least 720p, our own voice (no text-to-speech, no phone recording, no sped-up footage, intro ≤ 20 s, ≤ 4 bullets per slide).
+
+1. **(15s)** "Mesh is verifiable spare compute — the chain proves what ran, punishes a lie, and leaves a receipt."
+2. **(40s)** A **scripted agent** on PC A posts a heavy render job, pays via x402 on Hedera (no checkout, no human click). Show World ID approved.
+3. **(50s)** Render splits across PC A and PC B. Both CPUs spike; the image assembles live; tile hashes stream by.
+4. **(40s)** Honest receipt on HashScan: image/input/output hashes, Merkle root, spot-check seed, HCS trail. Escrow releases after the window.
+5. **(55s)** **Cheat run:** PC B blurs some tiles. Verifier's seeded spot-check catches it. Show the fraud proof (tile + Merkle proof), slash tx, refund tx.
+6. **(25s)** `infer` job through 0G: show the request ID and the TEE signature verified by the Hedera contract. One sentence: "without 0G this job type has no verification."
+7. **(15s)** Optional: denied World ID path.
+
+**Likely judge questions and our answers**
+- *"How do you know the output was wrong?"* Independent recomputation of seeded random tiles; mismatch proven with a Merkle proof.
+- *"Why would anyone be honest?"* Stake ≥ skipped-work value ÷ detection probability (§3.4).
+- *"Can the provider just skip the unchecked tiles?"* Yes at risk: detection probability grows quickly with the cheated fraction; the sample seed is unknown at claim time.
+- *"Is the verifier trusted?"* In v1 yes for finalizing disputes, but it cannot forge results and every decision is on HCS/chain; multi-verifier is the next step.
+- *"Why Hedera?"* x402 track + low fees + HCS audit log + EVM contracts.
+- *"What does 0G add?"* The only verification path for non-deterministic AI jobs.
+
+Backup: pre-recorded 720p video of the full flow if venue Wi‑Fi dies. Both machines tested on hotspot before the final session.
+
+---
+
+## 11. Testing workflow (do not skip)
 
 Write expected vs actual for each case in `docs/QA.md` as you go.
 
-1. **Setup.** Docker running on both laptops. Two funded Hedera testnet wallets. World ID once each. Agent installed on both. API reachable from both (same Wi‑Fi or hotspot).
-2. **Smoke, no chain.** PC A submits “echo hello”; PC B returns `hello`. If this fails, do not touch contracts yet.
-3. **Hashes.** Change one byte of the image or input on PC B; job must fail verification.
-4. **Payment + escrow happy path.** x402 pay → lock → run → receipt → release to provider.
-5. **Failure refund.** Kill the container or force timeout; requester is refunded; provider is not paid.
-6. **Slash path.** Provider claims success with a wrong `outputHash` or missing attestation (when required); slash + refund.
-7. **Replay.** Submit the same x402 payment twice; second is rejected.
-8. **World ID deny.** Expired/cancelled proof; job or provider register does not happen.
-9. **Cross-OS.** PC A Mac / PC B Windows, then swap. Same job, same `outputHash`.
-10. **Disconnect.** Unplug PC B mid-job; timeout → refund.
-11. **Venue rehearsal.** One extra person runs the agent if possible. Time the happy path.
-12. **Screen recording** of the happy path and the slash path.
+1. **Setup.** Docker running on both laptops; funded Hedera wallets; World ID done; agent installed; API reachable.
+2. **Smoke, no chain.** `echo hello` PC A → API → PC B → result. Fail here → do not touch contracts.
+3. **Hashes.** Change one byte of image or input; job must fail verification.
+4. **Determinism.** `render` run on Mac and Windows produces the identical Merkle root, both directions.
+5. **Happy path.** x402 pay → lock → split render → claim → spot-check → final → release.
+6. **Cheat detection.** Tamper N% of tiles; verifier catches at the expected rate; slash + refund. Run it 20× and record the empirical detection rate against §3.4.
+7. **Failure refund.** Kill container / force timeout; requester refunded; provider not paid.
+8. **Replay.** Same x402 payment twice; second rejected.
+9. **Agent requester.** Budget cap and allowlist enforced; over-cap job denied.
+10. **World ID deny.** Expired/cancelled proof; protected action does not happen.
+11. **0G.** `infer` returns request ID + signature; contract accepts a valid one, rejects a tampered one.
+12. **Disconnect.** Unplug PC B mid-job; timeout → refund; tiles reassigned.
+13. **Venue rehearsal.** Time the happy path; someone else runs PC B if possible.
+14. **Recordings** of happy path and cheat path.
 
 ---
 
-## 10. Work split
+## 12. Work split
 
-Two people. Overlap is dangerous; interfaces are agreed below. If someone finishes early, they take items from **Shared / stretch**, not from the other person’s core until that core is working.
+Overlap is dangerous; interfaces are agreed below. If someone finishes early, take items from **Shared / stretch**, not the other person's core.
 
 ### Agreed interfaces (do not change without telling the other person)
 
-- Job JSON schema (section 5.1)
-- `POST /jobs`, `GET /jobs/:id`, `POST /jobs/:id/result`, `GET /receipts/:jobId`
-- Docker image contract: read `/input`, write `/output`, exit 0 on success
-- Hash function: **SHA-256** hex, lowercase, of raw bytes
+- Job schema (§7.1) and statuses
+- `POST /jobs`, `GET /jobs/:id`, `POST /jobs/:id/result`, `GET /receipts/:jobId`, `POST /jobs/:id/claim`
+- Docker image contract: read `/input`, write `/output/tile-<i>`, exit 0 on success; integer-only math
+- Hashing: SHA-256 lowercase hex; Merkle tree format in `packages/shared`
+- 402 response format and x402 header handling
 - Chain IDs and contract ABIs in `packages/shared`
-
----
 
 ### Misbah — chain, verification, product truth
 
-Misbah owns anything that would make judges say “this is just Web2 payments” if it were missing. Also architecture and the demo narrative (SolDiff-style: evidence, hashes, no over-claim).
-
 **Thursday night (after 9:00 PM IST)**
-
-- Create the repo (only after hacking starts), README stub, `.env.example`, `AI.md`, this plan copied into `docs/IMPLEMENTATION-PLAN.md`.
-- Foundry project: `MeshReceipt`, `MeshStake`, `MeshEscrow`, tests for: cannot release without receipt; cannot double-release; slash then refund; replay-safe job ids.
-- Deploy to Hedera testnet. Publish addresses in `.env.example` (addresses are fine to commit; keys are not).
-- Define and document the receipt event layout.
-- World ID server-side verify endpoint (action: `register-provider` and `create-job`).
-- Sketch the 402 response format with Anurag so the web client and API match.
+- README stub, `.env.example`, `AI.md`.
+- Foundry: `MeshReceipt`, `MeshStake`, `MeshEscrow`. Tests: cannot release without `final`; no double release; fraud → slash + refund; replay-safe job IDs; Merkle proof verification; `ecrecover` check for 0G signer.
+- Deploy to Hedera testnet; commit addresses (not keys).
+- World ID server verify (`register-provider`, `create-job`).
+- Agree the 402 format with Anurag.
 
 **Friday**
+- x402 facilitator (verify, replay protection, escrow lock) and HCS publisher.
+- Verifier service: seeded sampling, tile recompute, Merkle fraud proof, post `finalize`/`postFraud`.
+- Receipt explorer: paste `jobId` → hashes, Merkle root, verdict, HashScan + HCS links.
+- 0G spike: one `infer` request with signature verified on chain, or `docs/OG-STATUS.md`.
+- Denied World ID path; spending-controls policy for the agent.
+- Sponsor feedback notes and `docs/DEMO.md`.
 
-- x402 facilitator: verify payment, replay protection, call escrow lock.
-- Verifier service: given a result payload, check image/input/output hashes; verify 0G attestation if present; then `postReceipt` + `release` or `refund` + `slash`.
-- Receipt explorer page: paste `jobId`, show hashes, provider, slash-or-success, Hedera tx links.
-- Denied World ID path in the UI (coordinate with Anurag on the component).
-- 0G integration spike: one attested job or a written note in `docs/OG-STATUS.md` of exactly what blocked us (no fake proofs).
-- Start `FEEDBACK` notes for World / Hedera / 0G (sponsors often want a short integration note).
-- Write the demo script (section 8) on a one-pager in `docs/DEMO.md`.
-- Friday night: record the backup video with Anurag.
+**Saturday morning:** rehearse; confirm testnet funds; submit.
 
-**Saturday morning**
-
-- Rehearse on the two laptops. Confirm testnet funds still exist.
-- Submission: project name, description, repo, demo video, partner picks (Hedera, 0G, World), Finalist + Partner Prizes, AI disclosure.
-
-**Misbah does not** spend Thursday night pixel-polishing the marketing landing page. The receipt and slash path come first.
-
----
+Misbah does not polish landing pages on Thursday.
 
 ### Anurag — agent, runner, two-OS reality, requester UX
 
-Anurag owns the thing that has to work on a Windows laptop and a Mac: agent, Docker runner, job images, requester UI to post a job and see progress.
-
-**Thursday night (after 9:00 PM IST)**
-
-- Scaffold `apps/web`, `apps/api` (or agreed Next full-stack), `apps/agent`.
-- Provider agent: register with API, heartbeat, poll/receive job, pull image, run Docker with CPU/memory limits and `--network none`, compute hashes, POST result.
-- Sample job `jobs/echo` and `jobs/resize` with a Dockerfile that builds on **both** OS architectures if we can (`linux/amd64` is safest if one laptop is Intel/AMD; note Apple Silicon — use `--platform linux/amd64` or build two tags, but pick **one** platform and stick to it so hashes match).
-- Requester UI: create job, upload/paste input, show status states from section 5.1.
-- Get the **no-chain smoke test** passing: PC A → API → PC B → result.
+**Thursday night**
+- Scaffold `apps/web`, `apps/api`, `apps/agent`.
+- Provider agent: register, heartbeat, poll, pull image by digest, run Docker with limits and `--network none --platform linux/amd64`, hash tiles, sign claim, POST.
+- `jobs/echo` then `jobs/render` (fixed-point, deterministic).
+- No-chain smoke test passing.
 
 **Friday**
+- Live render UI: tiles appear as they finish; per-provider CPU/progress; status states.
+- Wire x402 payment (Misbah's 402 format) and World ID widgets.
+- Scripted agent requester in `packages/sdk`.
+- Provider dashboard: current job, logs, last hashes.
+- Dev-only `--tamper` flag on the agent (never default on) for the cheat demo.
+- Cross-OS determinism matrix; LAN/tunnel setup; `jobs/matmul` if time.
+- Record backup video with Misbah.
 
-- Wire UI to x402 payment (Misbah’s 402 format) and World ID widgets (Misbah’s verify endpoints).
-- Provider dashboard: current job, logs (last N lines), last hashes.
-- Happy-path and failure UX: timeout, crash, “verification failed.”
-- Help Misbah test slash path by adding a hidden or flagged “tamper output” mode on the agent (dev-only flag, never default on).
-- Cross-OS matrix: both directions, same `outputHash`.
-- LAN/tunnel so PC B can always reach the API at the venue.
-- With Misbah: record backup video.
+**Saturday morning:** agent + Docker health check on both laptops; drive PC B in the demo (large terminal font).
 
-**Saturday morning**
-
-- Agent + Docker health check on both laptops before we leave for the floor.
-- Live-demo driver: Anurag runs PC B visibly (terminal large font); Misbah runs PC A and talks.
-
-**Anurag does not** rewrite Solidity on Thursday night. If the API needs a stub escrow before contracts are deployed, stub it behind an interface Misbah will replace.
-
----
+Anurag does not rewrite Solidity; if the API needs a stub escrow, build it behind an interface Misbah replaces.
 
 ### Shared / stretch (whoever finishes core first)
 
-- ENS names for the two machines
-- Arkiv output storage
-- Scripted agent requester (no UI) paying with x402
-- Extra job type (small inference)
-- Public landing page copy that matches the demo sentence
-- One extra venue provider (a friend’s laptop) if we have spare time Friday night
+- `matmul` with Freivalds
+- Arkiv job board (only if it can be central)
+- ERC-8004 / HCS-14 identity for the agent
+- Extra venue provider
+- Landing page copy matching the demo sentence
 
 ---
 
-## 11. Suggested clock (keep this loose, but do not invert priorities)
+## 13. Suggested clock
 
 | When | Together | Then split |
 | --- | --- | --- |
-| Thu 21:00–21:30 | Repo + interfaces + “echo” job contract | — |
+| Thu 21:00–21:30 | Interfaces, tile format, determinism rules, 402 format | — |
 | Thu 21:30–01:00 | — | Misbah: contracts + deploy. Anurag: agent + echo smoke test |
-| Fri morning | Integrate paid job on testnet | — |
-| Fri afternoon | Slash path + World ID deny path | 0G spike (Misbah), polish UI (Anurag) |
-| Fri evening | Full QA list (section 9), demo rehearsal, record video | — |
+| Fri morning | Deterministic render across both OS; integrate paid job on testnet | — |
+| Fri afternoon | Verifier + cheat path + fraud proof; World deny path | 0G spike (Misbah), live UI (Anurag) |
+| Fri evening | Full QA (§11), demo rehearsal, record video | — |
 | Sat before 09:00 | Submit | — |
 
-Hacking officially starts 9:00 PM Thursday. Do not backdate commits.
+Do not backdate commits.
 
 ---
 
-## 12. Risks and how we handle them
+## 14. Risks and how we handle them
 
 | Risk | Handling |
 | --- | --- |
-| “This is just token escrow” | Lead with receipt + slash + attestation. Never open the pitch with payments. |
-| 0G tooling too new | Docker + hashes + slash; document 0G status; no fake attestation |
+| "This is just token escrow" | Open with proof, slash, receipt — never payments |
+| "How is wrong detected?" | Seeded spot-check + Merkle fraud proof; stake math in §3.4 |
+| Verifier trust questioned | State it plainly (§1.2, §3.7); everything public on chain + HCS |
+| 0G tooling too new | `render` + Hedera + World ship regardless; `infer` is additive; document status; no fake proofs |
+| x402 is crowded (many projects use it) | Differentiate on verification + slashing; use agent spending controls and HCS audit trail |
+| Determinism breaks across OS | Integer-only math, one platform flag, digest pinning, test early Friday morning |
+| Docker on Windows/Mac | Echo first; Node/WASM fallback runner |
 | Venue Wi‑Fi | Hotspot; local API on one laptop; recorded backup |
-| Docker on Windows vs Mac | One platform flag; echo job first; resize only if hashes match both ways |
-| Hedera testnet faucet / RPC | Fund wallets early Thursday night; keep a second RPC URL |
-| World ID sandbox issues | Implement deny path; test before Friday night |
-| Time | Cut ENS, Arkiv, extra job types, marketing pages — never cut slash path or receipt |
-| Isolation not perfect | Say so: v1 is hash-bound Docker (+ TEE when ready). Full provider-blind compute is the 6–12 month product |
+| Hedera faucet / RPC | Fund wallets early Thursday; keep a second RPC URL |
+| World sandbox issues | Implement deny path; test before Friday night |
+| Time | Cut order: ENS, Arkiv, matmul, extra job types, landing page — never the render demo, receipt, or slash path |
+| Isolation not perfect | Say so: v1 is hash-bound Docker + spot-check (+ TEE for AI jobs) |
+| Disqualification | Fresh repo, steady commits, `AI.md`, README lists third-party code, no faked attestations |
 
 ---
 
-## 13. What “done” means for Mumbai
+## 15. What "done" means for Mumbai
 
-We are done when all of the following are true:
+1. A scripted agent on one OS pays via x402 on Hedera, posts a render job, and receives a correct result computed across two machines on two OSes.
+2. A receipt on Hedera shows image/input hashes and the Merkle root; the full history is on an HCS topic.
+3. A cheating provider is caught by a seeded spot-check, slashed, and the requester is refunded, with the fraud proof shown.
+4. An `infer` job through 0G has a request ID and a TEE signature verified by the Hedera contract (or `OG-STATUS.md` explains exactly why not).
+5. World ID happy path and denied path both work, verified on the server.
+6. x402 replay is rejected; the agent's spending cap is enforced.
+7. 2–4 minute demo video (≥720p, our voice), frequent git history, `AI.md`, README with Hedera transaction IDs, and a submission on Finalist + Partner Prizes with Hedera, 0G, and World.
 
-1. PC A (OS 1) can pay, post a job, and receive a correct result from PC B (OS 2).
-2. A compute receipt is on Hedera with image, input, and output hashes.
-3. A tampered or fake success is rejected; requester refunded; provider slashed.
-4. World ID happy path and deny path both work, verified on the server.
-5. x402 payment cannot be replayed.
-6. We have a 2–4 minute demo video, frequent git history, `AI.md`, and a submission on Finalist + Partner Prizes with Hedera, 0G, and World selected.
-
-After Mumbai, the same repo becomes the product: more job types, real 0G attestation by default, encrypted payloads, public provider discovery, and mainnet. The weekend is v1 of that company, not a disposable demo.
+After Mumbai: more job types, multi-verifier challenges, encrypted inputs, TEE-hosted providers, public discovery, mainnet.
 
 ---
 
-## 14. One-line reminder
+## 16. One-line reminder
 
 **Mesh lets spare machines run jobs for strangers. The chain does not exist to move the fee. It exists to prove what ran, punish a lie, and leave a receipt anyone in the world can check.**

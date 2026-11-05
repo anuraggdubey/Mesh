@@ -15,6 +15,7 @@
     "worker:mock": "tsx workers/mock-provider/index.ts",
     "agent": "tsx scripts/agent.ts",
     "chain:local": "tsx scripts/local-chain.ts",
+    "testnet:smoke": "tsx scripts/testnet-smoke.ts",
     "with-env": "tsx scripts/with-env.ts"
   },
   "dependencies": {

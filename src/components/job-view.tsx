@@ -11,7 +11,8 @@ import { StatusBadge } from "./status-badge";
 import { StatusTimeline } from "./status-timeline";
 import { PROVIDER_COLORS, providerColor, TileImage } from "./tile-image";
 
-const EVENT_NAMES = ["status", "assigned", "tile", "progress", "claim", "sample", "verdict", "settlement", "error"];
+const EVENT_NAMES = ["status", "assigned", "tile", "progress", "claim", "chain", "sample", "verdict", "settlement", "error"];
+const isTxHash = (v: string) => /^0x[0-9a-fA-F]{64}$/.test(v);
 
 // A once-per-second clock. The server snapshot is a constant (0) so nothing time-dependent is evaluated during
 // prerender (Cache Components forbids Date.now() there); the client takes over after hydration.
@@ -214,18 +215,48 @@ export function JobView({ jobId }: { jobId: string }) {
               <dd className="font-mono text-xs" title={state.merkleRoot ?? undefined}>
                 {state.merkleRoot ? shortHash(state.merkleRoot, 16) : "after every provider signs"}
               </dd>
-              <dt className="text-zinc-500">On-chain claim</dt>
+              <dt className="text-zinc-500">Escrow</dt>
               <dd>
-                {state.claimTx ? (
-                  <a href={hashscan.tx(state.claimTx)} target="_blank" rel="noreferrer" className="underline">
-                    view on HashScan
+                {state.lockTx && isTxHash(state.lockTx) ? (
+                  <a href={hashscan.tx(state.lockTx)} target="_blank" rel="noreferrer" className="underline">
+                    payment locked
                   </a>
-                ) : state.merkleRoot ? (
-                  <span className="text-amber-700 dark:text-amber-300">not posted yet (chain step pending)</span>
+                ) : state.lockTx ? (
+                  "payment locked"
                 ) : (
                   "-"
                 )}
               </dd>
+              <dt className="text-zinc-500">On-chain claim</dt>
+              <dd>
+                {state.claimTx && isTxHash(state.claimTx) ? (
+                  <a href={hashscan.tx(state.claimTx)} target="_blank" rel="noreferrer" className="underline">
+                    view on HashScan
+                  </a>
+                ) : state.claimTx ? (
+                  "posted on chain"
+                ) : state.merkleRoot ? (
+                  <span className="text-amber-700 dark:text-amber-300">not posted yet</span>
+                ) : (
+                  "-"
+                )}
+              </dd>
+              {state.settlement && (
+                <>
+                  <dt className="text-zinc-500">Settlement</dt>
+                  <dd>
+                    {state.settlement === "released" ? "providers paid" : "refunded to requester"}
+                    {state.finalTx && isTxHash(state.finalTx) && (
+                      <>
+                        {" · "}
+                        <a href={hashscan.tx(state.finalTx)} target="_blank" rel="noreferrer" className="underline">
+                          transaction
+                        </a>
+                      </>
+                    )}
+                  </dd>
+                </>
+              )}
               {windowLeft !== null && (
                 <>
                   <dt className="text-zinc-500">Challenge window</dt>

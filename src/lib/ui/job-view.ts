@@ -26,6 +26,9 @@ export interface JobViewState {
   merkleRoot: string | null;
   windowEnd: number | null;
   claimTx: string | null;
+  lockTx: string | null;
+  finalTx: string | null;
+  settlement: "released" | "refunded" | null;
   error: { code: string; message: string } | null;
   lastEventId: number;
   log: LogLine[];
@@ -42,6 +45,9 @@ export const initialViewState: JobViewState = {
   merkleRoot: null,
   windowEnd: null,
   claimTx: null,
+  lockTx: null,
+  finalTx: null,
+  settlement: null,
   error: null,
   lastEventId: 0,
   log: [],
@@ -75,6 +81,10 @@ export function reduceJobView(state: JobViewState, action: ViewAction): JobViewS
       providers: job.providers,
       merkleRoot: job.merkleRoot,
       claimTx: job.claimTx,
+      lockTx: job.lockTx ?? null,
+      finalTx: job.finalTx ?? null,
+      windowEnd: job.windowEnd ?? state.windowEnd,
+      settlement: job.status === "final" ? "released" : job.status === "refunded" ? "refunded" : state.settlement,
     };
   }
 
@@ -118,8 +128,24 @@ export function reduceJobView(state: JobViewState, action: ViewAction): JobViewS
     case "claim": {
       next.merkleRoot = (d.merkleRoot as string) ?? null;
       next.windowEnd = (d.windowEnd as number) ?? null;
-      next.claimTx = (d.claimTx as string) ?? null;
-      line("all providers signed their claims; Merkle root computed", "good");
+      next.claimTx = (d.claimTx as string | null) ?? state.claimTx;
+      line(d.claimTx ? "claim posted on chain; challenge window open" : "all providers signed their claims; Merkle root computed", "good");
+      break;
+    }
+    case "chain": {
+      if (d.kind === "locked") {
+        next.lockTx = (d.tx as string) ?? "already-locked";
+        line("payment locked in escrow on chain", "good");
+      } else {
+        line(String(d.kind ?? "chain event"));
+      }
+      break;
+    }
+    case "settlement": {
+      const kind = d.kind === "refunded" ? "refunded" : "released";
+      next.settlement = kind;
+      if (kind === "released") next.finalTx = (d.tx as string) ?? next.finalTx;
+      line(kind === "released" ? "challenge window passed: providers paid from escrow" : "payment refunded to the requester", kind === "released" ? "good" : "info");
       break;
     }
     case "error": {

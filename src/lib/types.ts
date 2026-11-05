@@ -56,6 +56,9 @@ export interface Job {
   stakeRequired: string;
   timeoutSeconds: number;
   createdAt: number;
+  lockTx: string | null; // escrow lock transaction
+  windowEnd: number | null; // end of the challenge window (chain time, unix seconds)
+  chainAttempts: number; // failed chain attempts so far
   claimTx: string | null;
   finalTx: string | null;
   fraudTx: string | null;

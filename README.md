@@ -28,7 +28,7 @@ Hedera (x402), 0G (Private Computer), World (IDKit or Agent Pass).
 | Plan, job spec, task split | Done |
 | Smart contracts (stake, escrow, receipt) | Done: 67 Foundry tests passing, deployed to Hedera testnet |
 | API: env validation, SQLite store, job state machine, jobs endpoints, provider registry (signed register + bearer token), matcher, task delivery, tile upload, signed claims with Merkle root, live SSE events | Done (92 tests, live run with two mock providers). On-chain `postClaim`, x402 payment check and World ID still to do |
-| x402 payment + escrow link | Not started |
+| Chain loop: escrow lock, on-chain claim, challenge window, finalize and payout; receipt endpoint | Done: verified with real Docker workers on a local chain (created -> final in about 39 s, providers paid on chain) and the API wallet's transactions on Hedera testnet. x402 payment check, verifier gating and fraud path still to do |
 | Requester UI: job form, providers panel, recent jobs, live job page (timeline, tile grid, image assembling from tiles, verification panel, activity log) | Done (verified in a browser with two providers). Wallet connect, x402 payment UI, World ID widget and the receipt explorer still to do |
 | Provider worker (real, Docker), job images, on-chain provider registration | Done: verified end to end on Windows with two real Docker workers; tiny hashes match the macOS golden file. Verifier worker and 0G job still to do |
 | World ID, HCS audit log, scripted agent | Not started |

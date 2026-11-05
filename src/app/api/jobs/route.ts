@@ -3,7 +3,7 @@ import { json, jsonError, readJson } from "@/lib/api";
 import { MAX_INPUT_BYTES } from "@/lib/constants";
 import { getEnv } from "@/lib/env";
 import { buildJob, getJob, insertJob, listJobs, transitionJob, UnsupportedJobTypeError } from "@/lib/jobs";
-import { tryAssignPending } from "@/lib/matcher";
+import { assignPending } from "@/lib/assign";
 import { createJobBodySchema } from "@/lib/types";
 
 /** GET /api/jobs: most recent jobs (newest first). */
@@ -52,7 +52,7 @@ export async function POST(req: Request) {
 
   if (devSkip) {
     const paid = transitionJob(job.jobId, "paid");
-    tryAssignPending(); // hand it to any provider that is already online
+    await assignPending(); // hand it to any eligible provider that is already online
     return json(getJob(job.jobId) ?? paid, 200, { "X-Mesh-Dev-Payment-Skipped": "true" });
   }
 

@@ -1,6 +1,6 @@
 import { execFileSync, spawn } from "node:child_process";
 import type { ChildProcess } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync, statSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { createPublicClient, createWalletClient, defineChain, getAddress, http, keccak256, parseEther, toBytes } from "viem";
@@ -38,6 +38,35 @@ export function foundryAvailable(): boolean {
   return existsSync(bin("anvil")) && existsSync(bin("forge"));
 }
 
+/**
+ * forge keeps its recovery state in the shared contracts/cache directory, so two deploys at the same time (for example
+ * two test files running in parallel) collide. Serialize them with a lock directory in the OS temp folder.
+ * A lock older than 5 minutes is treated as stale (a crashed run) and taken over.
+ */
+async function withForgeLock<T>(fn: () => T): Promise<T> {
+  const lock = path.join(os.tmpdir(), "mesh-forge-deploy.lock");
+  const start = Date.now();
+  for (;;) {
+    try {
+      mkdirSync(lock);
+      break;
+    } catch {
+      try {
+        if (Date.now() - statSync(lock).mtimeMs > 5 * 60_000) rmSync(lock, { recursive: true, force: true });
+      } catch {
+        // someone else just released it
+      }
+      if (Date.now() - start > 240_000) throw new Error("timed out waiting for another forge deploy to finish");
+      await new Promise((r) => setTimeout(r, 300));
+    }
+  }
+  try {
+    return fn();
+  } finally {
+    rmSync(lock, { recursive: true, force: true });
+  }
+}
+
 export interface LocalChain {
   rpcUrl: string;
   chainId: number;
@@ -71,6 +100,8 @@ export interface StartOptions {
   /** Register these provider wallets on MeshStake (placeholder nullifier) and stake this much each. */
   provisionProviders?: Hex[];
   stakeEther?: string;
+  /** Mine a block every N seconds (anvil otherwise mines only on transactions, so its clock stalls when idle). */
+  blockTimeSeconds?: number;
   quiet?: boolean;
 }
 
@@ -79,7 +110,14 @@ export async function startLocalChain(opts: StartOptions = {}): Promise<LocalCha
   const port = opts.port ?? 8545;
   const rpcUrl = `http://127.0.0.1:${port}`;
 
-  const anvil: ChildProcess = spawn(bin("anvil"), ["--port", String(port), "--chain-id", String(LOCAL_CHAIN_ID), "--silent"], {
+  const anvil: ChildProcess = spawn(bin("anvil"), [
+    "--port",
+    String(port),
+    "--chain-id",
+    String(LOCAL_CHAIN_ID),
+    "--silent",
+    ...(opts.blockTimeSeconds ? ["--block-time", String(opts.blockTimeSeconds)] : []),
+  ], {
     stdio: "ignore",
     windowsHide: true,
   });
@@ -97,7 +135,7 @@ export async function startLocalChain(opts: StartOptions = {}): Promise<LocalCha
     const accounts = ANVIL_KEYS.map((k) => privateKeyToAccount(k));
     const [deployer, api, verifier, providerA, providerB, requester] = accounts.map((a) => a.address);
 
-    const out = execFileSync(bin("forge"), ["script", "script/Deploy.s.sol", "--rpc-url", rpcUrl, "--broadcast", "--legacy"], {
+    const out = await withForgeLock(() => execFileSync(bin("forge"), ["script", "script/Deploy.s.sol", "--rpc-url", rpcUrl, "--broadcast", "--legacy"], {
       cwd: path.join(process.cwd(), "contracts"),
       env: {
         ...process.env,
@@ -112,7 +150,7 @@ export async function startLocalChain(opts: StartOptions = {}): Promise<LocalCha
       },
       encoding: "utf8",
       timeout: 180_000,
-    });
+    }));
     const grab = (name: string): Address => {
       const m = new RegExp(`${name}=(0x[0-9a-fA-F]{40})`).exec(out);
       if (!m) throw new Error(`could not read ${name} from the deploy output:\n${out.slice(-600)}`);

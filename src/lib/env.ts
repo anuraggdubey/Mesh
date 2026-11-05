@@ -48,6 +48,13 @@ const schema = z.object({
   // NEVER enable in the demo or production: it defeats the one-human-one-provider rule.
   MESH_DEV_SKIP_WORLD: z.preprocess(blank, z.enum(["true", "false"]).default("false")).transform((v) => v === "true"),
 
+  // Turn on the chain loop (lock escrow, post claims, finalize) and make assignment eligibility-aware. Off by default so the
+  // mock provider and unit tests work without a chain.
+  MESH_CHAIN_LOOP: z.preprocess(blank, z.enum(["true", "false"]).default("false")).transform((v) => v === "true"),
+  CHAIN_TICK_SECONDS: z.preprocess(blank, z.coerce.number().int().min(1).max(60).default(3)),
+  // Dev only: finalize without a verifier verdict. NEVER enable in the demo: it pays out without any spot-check.
+  MESH_DEV_AUTO_APPROVE: z.preprocess(blank, z.enum(["true", "false"]).default("false")).transform((v) => v === "true"),
+
   // Dev only: skip the x402 payment step and mark new jobs as paid. NEVER enable in the demo or in production.
   MESH_DEV_SKIP_PAYMENT: z.preprocess(blank, z.enum(["true", "false"]).default("false")).transform((v) => v === "true"),
 });

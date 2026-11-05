@@ -24,10 +24,11 @@ export interface Task {
 /**
  * Assign every `paid`, unassigned job to the providers that are currently online.
  * Tile i is owned by providers[i % providers.length] (docs/job-spec.md section 3.3); one task is created per provider.
+ * `allowed` (lowercase addresses) restricts the pool, e.g. to providers that are staked on chain.
  * Jobs with no online provider stay `paid` and are picked up the next time this runs. Returns the number assigned.
  */
-export function tryAssignPending(): number {
-  const online = listOnlineProviders();
+export function tryAssignPending(allowed?: Set<string>): number {
+  const online = listOnlineProviders().filter((p) => !allowed || allowed.has(p.address.toLowerCase()));
   if (online.length === 0) return 0;
 
   const rows = getDb()

@@ -1,6 +1,7 @@
 import { connection } from "next/server";
 import { json } from "@/lib/api";
-import { deliverTasks, tryAssignPending } from "@/lib/matcher";
+import { assignPending } from "@/lib/assign";
+import { deliverTasks } from "@/lib/matcher";
 import { requireProvider } from "@/lib/provider-auth";
 import { touchProvider } from "@/lib/providers";
 
@@ -22,7 +23,7 @@ export async function GET(req: Request) {
 
   for (;;) {
     touchProvider(auth.provider.address);
-    tryAssignPending();
+    await assignPending();
     const tasks = deliverTasks(auth.provider.address);
     if (tasks.length > 0 || Date.now() >= deadline || req.signal.aborted) return json({ tasks });
     await sleep(500);

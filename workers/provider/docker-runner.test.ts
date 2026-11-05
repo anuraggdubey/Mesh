@@ -67,7 +67,9 @@ afterEach(async () => {
   else process.env.MOCK_DOCKER_LOG = previousLog;
 });
 
-describe("provider Docker runner", () => {
+// These tests spawn a fake extensionless `docker` script (shebang + chmod), which Windows cannot execute.
+// A real docker.exe works on Windows; only this fake is POSIX-only. Run these tests on macOS/Linux or in CI.
+describe.skipIf(process.platform === "win32")("provider Docker runner", () => {
   it("runs the pinned image with isolation and returns hashed tile output", async () => {
     const docker = await createFakeDocker(digest);
     const input = makeInput();

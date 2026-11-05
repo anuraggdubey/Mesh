@@ -123,6 +123,7 @@ function ensureColumn(db: DatabaseSync, table: string, column: string, definitio
 
 function migrate(db: DatabaseSync): void {
   ensureColumn(db, "providers", "chain_tx", "TEXT");
+  ensureColumn(db, "job_events", "hcs_seq", "INTEGER"); // NULL = not published to HCS yet, 0 = not part of the log
 }
 
 type GlobalWithDb = typeof globalThis & { __meshDb?: { path: string; db: DatabaseSync } };

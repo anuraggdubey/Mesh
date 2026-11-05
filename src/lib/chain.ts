@@ -249,6 +249,11 @@ export async function onChainMinStake(): Promise<bigint> {
   return value;
 }
 
+/** The verifier address the receipt contract trusts (immutable on chain). */
+export async function verifierOnChain(): Promise<string> {
+  return publicClient().readContract({ address: addrs().receipt, abi: meshReceiptAbi, functionName: "verifier" });
+}
+
 export function resetChainCaches(): void {
   minStakeCache = null;
 }

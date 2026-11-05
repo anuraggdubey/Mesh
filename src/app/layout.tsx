@@ -27,6 +27,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             <Link href="/" className="text-lg font-semibold tracking-tight">
               Mesh
             </Link>
+            <Link href="/provider/verify" className="text-sm text-zinc-600 hover:underline dark:text-zinc-300">
+              Become a provider
+            </Link>
             <span className="hidden text-xs text-zinc-500 sm:inline">verifiable spare compute on Hedera testnet</span>
           </nav>
         </header>

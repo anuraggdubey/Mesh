@@ -69,6 +69,7 @@ export function buildJob(body: CreateJobBody): Job {
     stakeRequired: env.MIN_STAKE_WEI,
     timeoutSeconds: env.JOB_TIMEOUT_SECONDS,
     createdAt: now(),
+    payment: null,
     lockTx: null,
     windowEnd: null,
     chainAttempts: 0,

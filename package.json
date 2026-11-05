@@ -14,14 +14,18 @@
     "worker:verifier": "tsx workers/verifier/index.ts",
     "worker:mock": "tsx workers/mock-provider/index.ts",
     "agent": "tsx scripts/agent.ts",
+    "hcs:create-topic": "tsx scripts/create-topic.ts",
     "chain:local": "tsx scripts/local-chain.ts",
     "testnet:smoke": "tsx scripts/testnet-smoke.ts",
     "with-env": "tsx scripts/with-env.ts"
   },
   "dependencies": {
     "@hashgraph/sdk": "^2.81.0",
+    "@hiero-ledger/sdk": "^2.90.1",
     "@tanstack/react-query": "^5.106.1",
     "@worldcoin/idkit": "^4.6.0",
+    "@x402/core": "^2.30.0",
+    "@x402/hedera": "^2.30.0",
     "dotenv": "^18.0.9",
     "jose": "^6.2.15",
     "next": "16.4.5",

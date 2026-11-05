@@ -56,6 +56,7 @@ export interface Job {
   stakeRequired: string;
   timeoutSeconds: number;
   createdAt: number;
+  payment: { network: string; asset: string; amount: string; payer: string | null; transaction: string } | null; // settled x402 payment
   lockTx: string | null; // escrow lock transaction
   windowEnd: number | null; // end of the challenge window (chain time, unix seconds)
   chainAttempts: number; // failed chain attempts so far

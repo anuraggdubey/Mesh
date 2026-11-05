@@ -237,21 +237,26 @@ Everything about what each sponsor requires, the technical facts and the open de
 - [x] IDKit server: `POST /api/world/rp-context`, proof verification with the environment pinned, nullifier store (one human, one wallet), registration gated on a proof, denied path (spec section 11).
 - [x] Agent Pass backend: device grant, ID token validation, approvals bound to one exact action and single use, spending-threshold gate on `POST /api/jobs` (spec section 17).
 - [x] Provider client and worker accept `worldProof` (`PROVIDER_WORLD_PROOF`).
+- [x] x402 on `POST /api/jobs` (Hedera, v2 headers, replay protection, settled tx stored on the job); escrow mirrors the payment (option B). 20 tests with a fake facilitator.
+- [x] Scripted agent (`npm run agent -- small`): x402 payment, budget, per-job cap, preset and payee allowlists, approval flow above the threshold. 14 tests; the real x402 client signs offline.
+- [x] Verifier endpoint `POST /api/verifier/verdict` (signed by the verifier key), slash and refund bookkeeping, chain adoption of a `Rejected` receipt. 13 tests.
+- [x] HCS audit log (`src/lib/hcs.ts`), built from job events, retried, 1 KB guard; `npm run hcs:create-topic`; receipts return topic and sequences. 14 tests (fake submitter; **not yet run against live Hedera**).
+- [x] IDKit widget page `/provider/verify` (renders; a full scan needs the portal app) and a "Become a provider" link.
 
 ### Only you can do (accounts, keys, funds, decisions)
 
 - [ ] Create the **developer.world.org** app: set `NEXT_PUBLIC_WORLD_APP_ID`, `WORLD_RP_ID`, `WORLD_SIGNING_KEY` in `.env`. Action name: `register-provider`.
 - [ ] Create the **auth.world.org** confidential OIDC client (accept **Orb only**): set `WORLD_IDP_CLIENT_ID`, `WORLD_IDP_CLIENT_SECRET`. Then set `AGENT_APPROVAL_THRESHOLD` (for example `200000`).
-- [ ] Decide **x402 option A or B** (TRACKS 2.4) and **0G option 1 or 2** (TRACKS 4.5).
-- [ ] Fund a treasury account and a payer-agent account with testnet HBAR and USDC (faucet.circle.com), associate both with USDC; top up the deployer wallet if we redeploy.
-- [ ] Get an HTTPS URL for the API (tunnel or small server) for the demo link.
+- [ ] Fund the **API wallet** (treasury) and the **agent wallet** with testnet HBAR (`small` costs 5 HBAR, `tiny` 1). Set `AGENT_PRIVATE_KEY` (ECDSA) and `X402_ENABLED=true`. (x402 option B was chosen, so no USDC or token association is needed.)
+- [ ] Run `npm run hcs:create-topic` once and set `HCS_TOPIC_ID`.
+- [ ] Get an HTTPS URL for the API (tunnel or small server) for the World approval and the demo link.
+- [ ] Run the agent live (`npm run agent -- small`) and paste the settled transaction ID and HashScan link into the README.
+- [ ] Optional: tell Claude if you want 0G as a stretch or a third partner pick (0G is dropped by default).
 
-### Still to build (in order)
+### Still to do
 
-1. [ ] Step 12 with Misbah: verifier endpoints, `postFraud`, fraud view, slash and refund.
-2. [ ] x402 on `POST /api/jobs` with `@x402/hedera` (after the decision), replay protection, settled tx ID in the README.
-3. [ ] Scripted agent (`scripts/agent.ts`): x402 payment, budget, per-job cap, image allowlist, **approval flow above the threshold** (ask, show the code, wait, proceed or stop).
-4. [ ] HCS audit topic and publisher (uses the API wallet; no new secrets).
-5. [ ] IDKit widget page (`/provider/verify`): shows the proof for the worker; shows the denied path.
-6. [ ] `docs/FEEDBACK-world.md` and `docs/FEEDBACK-hedera.md` with real timings.
-7. [ ] Demo scenes: agent pays by x402 (HashScan), approval succeeds, denied approval creates no job, cheat caught.
+1. [ ] Live checks that need your keys: first x402 settlement on testnet, first HCS message, first World ID scan and first Agent Pass approval. Fill the timings into `docs/FEEDBACK-world.md` and `docs/FEEDBACK-hedera.md`.
+2. [ ] Step 12 with Misbah: merge the real verifier worker (branch `codex/misbah-verifier-step6`), make it call `POST /api/verifier/verdict`, then run the cheat-caught rehearsal (`MESH_TAMPER=true`).
+3. [ ] UI: show the payment HashScan link, approval and HCS links on the job page; the fraud view with slash and refund.
+4. [ ] Demo scenes: agent pays by x402 (HashScan), approval succeeds, denied approval creates no job, cheat caught.
+5. [ ] Option A upgrade (real USDC in escrow) only if there is time.

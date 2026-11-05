@@ -1,9 +1,11 @@
+import { flushHcs } from "./hcs";
 import { chainLoopConfigured, chainNow, escrowStatus, finalizeOnChain, lockEscrowOnChain, postClaimOnChain, refundOnChain } from "./chain";
 import { getDb } from "./db";
 import { getEnv } from "./env";
 import { appendEvent, getJob, transitionJob, updateJob } from "./jobs";
 import { markTasksFailed } from "./matcher";
 import type { Job } from "./types";
+import { adoptOnChainFraud, reconcileRejected } from "./verifier";
 
 /**
  * The chain loop (docs/job-spec.md sections 7.6, 8). One pass (`chainTick`) does, for every job that needs it:
@@ -69,7 +71,8 @@ export async function chainTick(): Promise<TickReport> {
   for (const job of jobsNeeding(["paid", "assigned", "running", "pending"])) {
     if (job.lockTx) continue;
     try {
-      const r = await lockEscrowOnChain(job, { devFund: env.MESH_DEV_SKIP_PAYMENT });
+      // x402 payments settle to the treasury account on Hedera; the escrow mirrors them (docs/TRACKS.md 2.4, option B)
+      const r = await lockEscrowOnChain(job, { devFund: env.MESH_DEV_SKIP_PAYMENT || job.payment !== null });
       updateJob(job.jobId, { lockTx: r.txHash ?? "already-locked" });
       appendEvent(job.jobId, "chain", { kind: "locked", tx: r.txHash });
       report.locked.push(job.jobId);
@@ -88,6 +91,15 @@ export async function chainTick(): Promise<TickReport> {
       report.claimsPosted.push(job.jobId);
     } catch (e) {
       await failChainStep(job, "claim", e, report);
+    }
+  }
+
+  // 3a. fraud the verifier proved on chain: finish the slash and refund (and adopt fraud that was never reported to the API)
+  for (const job of jobsNeeding(["pending", "rejected"])) {
+    try {
+      if (job.status === "pending" ? await adoptOnChainFraud(job.jobId) : await reconcileRejected(job.jobId)) report.refunded.push(job.jobId);
+    } catch (e) {
+      report.errors.push({ jobId: job.jobId, step: "fraud", message: message(e) });
     }
   }
 
@@ -149,6 +161,8 @@ export function startChainLoop(): boolean {
       try {
         const r = await chainTick();
         for (const e of r.errors) console.warn(`[mesh] chain ${e.step} failed for ${e.jobId.slice(0, 10)}: ${e.message}`);
+        const h = await flushHcs(); // mirror new job events to the HCS audit topic (a no-op without HCS_TOPIC_ID)
+        if (h.error) console.warn(`[mesh] HCS publish failed: ${h.error}`);
       } catch (e) {
         console.warn("[mesh] chain tick failed:", message(e));
       } finally {

@@ -27,8 +27,10 @@ Design details: [MESH-IMPLEMENTATION-PLAN.md](MESH-IMPLEMENTATION-PLAN.md). Exac
 | Chain loop: escrow lock, on-chain claim, challenge window, finalize and payout; receipt endpoint | Done: verified with real Docker workers on a local chain (created -> final in about 39 s, providers paid on chain) and the API wallet's transactions on Hedera testnet. x402 payment check, verifier gating and fraud path still to do |
 | Requester UI: job form, providers panel, recent jobs, live job page (timeline, tile grid, image assembling from tiles, verification panel, activity log) | Done (verified in a browser with two providers). Wallet connect, x402 payment UI, World ID widget and the receipt explorer still to do |
 | Provider worker (real, Docker), job images, on-chain provider registration | Done: verified end to end on Windows with two real Docker workers; tiny hashes match the macOS golden file. Verifier worker and 0G job still to do |
-| World ID (IDKit provider gate, Agent Pass approvals above a spending threshold) | Backend done and tested with fixtures (denied paths included); needs portal clients, then a live check and the widget page |
-| HCS audit log, scripted agent, x402 payment | Not started (x402 waits on an escrow decision) |
+| World ID (IDKit provider gate, Agent Pass approvals above a spending threshold) | Done and tested with fixtures (denied paths included), plus the `/provider/verify` widget page. Needs the portal app and client for a live check |
+| x402 payment on `POST /api/jobs` (Hedera), scripted agent with spending controls | Done and tested against a fake facilitator (replay, mismatch, denied and timeout paths). The first live settlement needs funded accounts |
+| Verifier verdict endpoint, slash and refund bookkeeping | Done (signed by the verifier key). The real verifier worker is on Misbah's branch |
+| HCS audit log | Done and tested with a fake submitter; needs `npm run hcs:create-topic` for a live run |
 | 0G inference job | Not started |
 
 ## Deployed contracts (Hedera testnet, chain ID 296)
@@ -42,7 +44,9 @@ Design details: [MESH-IMPLEMENTATION-PLAN.md](MESH-IMPLEMENTATION-PLAN.md). Exac
 
 Challenge window 45 s, minimum stake 0.5 HBAR, slash 0.2 HBAR. Deployment notes and checks: [docs/DEPLOY.md](docs/DEPLOY.md).
 
-**Settled-payment transaction ID (Hedera requirement):** not yet, added once the x402 flow works.
+**Settled-payment transaction ID (Hedera requirement):** not yet. The x402 flow is built and tested; this line is filled in after the first live settlement on testnet (`npm run agent -- small`).
+
+**How a payment works.** The agent posts a job; the API answers `402` with a price in HBAR on `hedera:testnet`; the agent signs a Hedera transfer and retries; the x402 facilitator verifies and settles it on Hedera (it pays the network fee); only then is the job created. A signed payment works once. Above a spending threshold the agent must first get a human approval in World (Agent Pass) for that exact job. The settled payment goes to the treasury account; the escrow contract then mirrors it (an honest limit: the payment on HashScan is real, the escrow holds a test token that mirrors it).
 
 ## Quick start
 

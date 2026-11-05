@@ -20,9 +20,9 @@ Related: [MESH-IMPLEMENTATION-PLAN.md](../MESH-IMPLEMENTATION-PLAN.md), [job-spe
 
 | Partner | Tracks we enter | Pool | Fit | Status |
 | --- | --- | --- | --- | --- |
-| **Hedera** | AI Agents That Pay: x402 on Hedera | $6,500 (3 / 2 / 1.5 k) | Strong | Core. Decision pending on how x402 funds escrow (section 2.4) |
-| **World** | World ID Agent Pass ($5,000: 2.5 / 1.5 / 1 k) **and** Best Use of IDKit ($2,500, two teams x $1,250) | $7,500 | Strong | Backend being built; needs portal clients (section 3.5) |
-| **0G** | Build with 0G Private Computer | $5,000 (2.5 / 1.5 / 1 k) | **Weak** | Decision pending: keep as stretch or replace (section 4.5) |
+| **Hedera** | AI Agents That Pay: x402 on Hedera | $6,500 (3 / 2 / 1.5 k) | Strong | Core. x402 server, agent, spending controls, HCS log and receipts are built and tested against a fake facilitator. **Live settlement needs funded accounts (section 6)**. Escrow funding: option B chosen (2.4) |
+| **World** | World ID Agent Pass ($5,000: 2.5 / 1.5 / 1 k) **and** Best Use of IDKit ($2,500, two teams x $1,250) | $7,500 | Strong | Built and tested: IDKit gate, Agent Pass approvals, verify page. **Needs the portal app and client from you (section 6)** |
+| **0G** | Build with 0G Private Computer | $5,000 (2.5 / 1.5 / 1 k) | **Weak** | **Dropped by default** (Option 1 in 4.5). Not built. Say so if you want it as a stretch |
 
 If 0G is dropped, a third pick is optional. Candidates from earlier research: Arkiv "build from scratch" (job board, bids, expiring claims) or Arc smart contracts (conditional escrow). Decide by Friday evening; never let this block the core.
 
@@ -78,21 +78,20 @@ Conflict: our `MeshEscrow` is an **EVM contract** holding an ERC-20 (`MockStable
 | **A: real USDC in escrow** | `payTo` = the API's Hedera account (treasury). After settlement the API transfers the USDC into the escrow contract (via the token's ERC-20 facade address) and calls `lock`. Redeploy escrow with the HTS USDC facade as `token` and add an `associate()` call so the contract can hold the token | Real money is escrowed; refunds and payouts are real; best story for judges | Redeploy escrow, receipt and stake (about 5.4 HBAR; deployer has 2.8); HTS association work; more to test |
 | **B: payment proof only** | `payTo` = treasury. The API treats the settled x402 tx as proof of payment and mints/locks `MockStable` in escrow 1:1 | Fast; no redeploy | Escrow holds worthless mock tokens; slash/refund of "real" payment is not real; judges can call it out |
 
-**Recommendation: A**, because the whole product claim is "stake and escrow make cheating unprofitable". If time runs short, ship B first behind a clear label ("escrow mirrors the settled payment") and upgrade to A.
-**Needs Anurag's decision.** Option A also needs the deployer wallet topped up to at least about 6 HBAR.
+**Decision (made while building, because time was short): B now, A as the upgrade.** The settled x402 payment goes to the treasury account (the API wallet's Hedera account, or `X402_PAY_TO`); the escrow contract then mirrors it by minting `MockStable` 1:1 (`lockEscrowOnChain` with `devFund` when `job.payment` exists). The README states this plainly: the payment on HashScan is real, the escrow is a mirror of it. Option A (real HTS USDC in escrow) needs a redeploy and about 6 HBAR on the deployer; it is the first thing to do if there is time.
 
 ### 2.5 Tasks and owners (Hedera)
 
 | Task | Owner | Notes |
 | --- | --- | --- |
-| Decide option A or B (2.4) | Anurag | blocks the rest of x402 |
-| Install `@x402/hedera`, `@x402/core`; read `@x402/core` for the facilitator verify/settle shapes | Anurag | |
-| Make `POST /api/jobs` an x402 endpoint (402 with `PAYMENT-REQUIRED`, verify + settle via facilitator, replay check, then mark `paid`) | Anurag | replaces the current hand-written 402 body |
-| Treasury account (ECDSA) funded and associated with USDC; payer agent account funded with USDC | Anurag | needs faucet steps |
-| Scripted agent requester using `x402Client` + spending policy | Anurag | `scripts/agent.ts` |
-| Spending controls: budget, per-job cap, allowlist, **human approval above a threshold** | Anurag | approval = World Agent Pass (section 3) |
-| HCS audit topic and publisher | Anurag | uses the API wallet's own key and mirror-node account lookup; no new secrets |
-| README: payment flow, settled tx ID, HashScan link | Anurag | |
+| Decide option A or B (2.4) | done | B chosen |
+| Install `@x402/hedera`, `@x402/core`; read `@x402/core` for the facilitator verify/settle shapes | done | `@x402/core`, `@x402/hedera`, `@hiero-ledger/sdk` |
+| Make `POST /api/jobs` an x402 endpoint (402 with `PAYMENT-REQUIRED`, verify + settle via facilitator, replay check, then mark `paid`) | done | `src/lib/x402.ts`, `src/app/api/jobs/route.ts`; 20 tests with a fake facilitator |
+| Treasury account (ECDSA) funded; payer agent account funded with HBAR (or USDC) | **you** | HBAR needs no token association, so no faucet steps for the default asset |
+| Scripted agent requester using `x402Client` + spending policy | done | `src/lib/agent.ts`, `scripts/agent.ts` (`npm run agent`); 14 tests |
+| Spending controls: budget, per-job cap, allowlist, **human approval above a threshold** | done | budget, per-job cap, preset and payee allowlists, one asset; approval = World Agent Pass |
+| HCS audit topic and publisher | code done, **topic needs you** | `src/lib/hcs.ts`; run `npm run hcs:create-topic` once, set `HCS_TOPIC_ID` |
+| README: payment flow, settled tx ID, HashScan link | flow done, **tx ID needs a live run** | the ID cannot be written until the agent has paid on testnet |
 | Demo scene: agent pays with no human click, HashScan tab open | Anurag drives, Misbah's provider runs the job | |
 
 ---
@@ -152,9 +151,9 @@ Approvals are **bound to the specific action** (price, preset, requester) and **
 | Create the `developer.world.org` app: `app_id`, `rp_id`, `signing_key`; actions `register-provider` | **Anurag (you)** | put in `.env`: `NEXT_PUBLIC_WORLD_APP_ID`, `WORLD_RP_ID`, `WORLD_SIGNING_KEY` |
 | Create the `auth.world.org` confidential OIDC client (Orb only); a placeholder HTTPS redirect URI is fine for the device grant | **Anurag (you)** | put in `.env`: `WORLD_IDP_CLIENT_ID`, `WORLD_IDP_CLIENT_SECRET` |
 | IDKit server: RP signature route, verify route, nullifier store, wire into provider registration, denied path | Anurag (AI-assisted) | done in code; tested with fixtures |
-| IDKit UI: widget on the provider onboarding page | Anurag | needs `app_id`/`rp_id` |
+| IDKit UI: widget on the provider onboarding page | done | `/provider/verify` renders the widget (checked in a browser); the full scan needs real `app_id`/`rp_id` |
 | Agent Pass backend: device grant, ID token validation, approval store bound to action, approval policy in `POST /api/jobs` | Anurag (AI-assisted) | done in code; tested with a local fake issuer |
-| Agent script: ask for approval above threshold, wait, proceed or stop | Anurag | |
+| Agent script: ask for approval above threshold, wait, proceed or stop | done | tested: approved, denied and timeout all leave nothing paid |
 | `docs/FEEDBACK-world.md` debrief, with real timings | both | note time to first success, friction, missing docs |
 | Demo scene: approval succeeds, then a denied/expired approval creates no job | Anurag | |
 
@@ -223,8 +222,11 @@ Mesh is a compute marketplace, not a consumer AI app. A bolted-on chat call woul
 
 ## 6. Things only Anurag can do (accounts, keys, funds)
 
-1. Create the **`developer.world.org`** app and the **`auth.world.org`** OIDC client; add the values to `.env` (names in 3.5).
-2. Top up the **deployer wallet** if we redeploy contracts (about 6 HBAR).
-3. Fund a **treasury** account and a **payer agent** account with testnet HBAR and testnet USDC (faucet.circle.com), associate both with USDC.
-4. Decide **x402 option A or B** (2.4) and **0G option 1 or 2** (4.5).
-5. Get an HTTPS URL for the API (tunnel or small server) for the World browser flow and the live demo link.
+1. Create the **`developer.world.org`** app and the **`auth.world.org`** OIDC client; add the values to `.env` (names in 3.5). Set `AGENT_APPROVAL_THRESHOLD` (for example `100000`, so `small` needs a human).
+2. Fund the **API wallet** (the treasury) and the **agent wallet** with testnet HBAR; send the agent wallet a little more than the jobs cost (`small` = 5 HBAR, `tiny` = 1 HBAR). Set `AGENT_PRIVATE_KEY` (an ECDSA key) and `X402_ENABLED=true`.
+3. Run `npm run hcs:create-topic` once and put `HCS_TOPIC_ID` in `.env`.
+4. Get an HTTPS URL for the API (tunnel or small server) for the World approval and the live demo link.
+5. Run the agent live once (`npm run agent -- small`) and paste the settled transaction ID and HashScan link into the README.
+6. Push the render image to a shared registry and set `RENDER_IMAGE_REF` / `RENDER_IMAGE_DIGEST` (with Misbah).
+7. Record the demo video, fill the Telegram and X handles, submit.
+8. Optional: tell me if you want **0G** as a stretch, or a third partner pick.

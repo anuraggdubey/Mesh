@@ -1,7 +1,10 @@
 import { connection } from "next/server";
 import { json, jsonError } from "@/lib/api";
 import { chainLoopConfigured, readOnChainReceipt } from "@/lib/chain";
+import { getEnv } from "@/lib/env";
+import { hashscanTopicUrl } from "@/lib/hcs";
 import { getJob } from "@/lib/jobs";
+import { hashscanTxUrl } from "@/lib/x402";
 import { jobIdSchema } from "@/lib/types";
 
 /**
@@ -36,6 +39,8 @@ export async function GET(_req: Request, ctx: { params: Promise<{ jobId: string 
     merkleRoot: job.merkleRoot,
     verdict: job.verdict,
     windowEnd: job.windowEnd,
+    payment: job.payment ? { ...job.payment, hashscan: hashscanTxUrl(job.payment.transaction, job.payment.network) } : null,
+    hcs: { topicId: getEnv().HCS_TOPIC_ID ?? null, sequences: job.hcsSequence, ...(getEnv().HCS_TOPIC_ID ? { hashscan: hashscanTopicUrl(getEnv().HCS_TOPIC_ID as string) } : {}) },
     transactions: { lock: job.lockTx, claim: job.claimTx, finalize: job.finalTx, release: job.releaseTx, refund: job.refundTx },
     onChain,
     ...(onChainError ? { onChainError } : {}),

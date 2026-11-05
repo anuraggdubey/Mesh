@@ -159,6 +159,18 @@ export async function getApproval(id: string, fetchImpl: typeof fetch = fetch): 
   return view(row);
 }
 
+/** Non-consuming check used before the payment leg: throws unless the approval is approved, unexpired, unused and bound to these parameters. */
+export function checkApproval(id: string, params: ApprovalParams): { subject: string | null } {
+  const row = getRow(id);
+  if (!row) throw new ApprovalError("not_found", "approval not found");
+  if (row.status === "used") throw new ApprovalError("already_used", "this approval was already used");
+  if (row.status === "denied") throw new ApprovalError("denied", row.reason ?? "the human did not approve");
+  if (row.status === "expired" || (row.status === "pending" && now() >= row.expires_at)) throw new ApprovalError("expired", "the approval expired");
+  if (row.status !== "approved") throw new ApprovalError("not_approved", "the human has not approved yet");
+  if (row.binding !== bindingFor(params)) throw new ApprovalError("binding_mismatch", "this approval was granted for a different action");
+  return { subject: row.subject };
+}
+
 /**
  * Use an approval for the action it was granted for. Atomic and single use. Throws unless it is approved, unexpired, unused and
  * bound to exactly these parameters.

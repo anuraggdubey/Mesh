@@ -430,55 +430,60 @@ Deploy order: `MockStable` (if needed) → `MeshStake` → `MeshEscrow` → `Mes
 
 ---
 
-## 9. x402 payment on `POST /api/jobs`
+## 9. x402 payment on `POST /api/jobs` (v2, as built)
+
+x402 v2 on Hedera. Headers: `PAYMENT-REQUIRED` (402), `PAYMENT-SIGNATURE` (the paid retry), `PAYMENT-RESPONSE` (success). Implementation: `src/lib/x402.ts`, `src/app/api/jobs/route.ts`. Enabled with `X402_ENABLED=true`.
 
 ### 9.1 Challenge (no payment header)
 
-`POST /api/jobs` with a valid body and **no** `X-PAYMENT` header → **HTTP 402**, JSON:
+`POST /api/jobs` with a valid body and **no** `PAYMENT-SIGNATURE` header returns **HTTP 402** with a base64 `PAYMENT-REQUIRED` header (the same JSON is in the body):
 
 ```json
 {
-  "x402Version": 1,
-  "error": "X-PAYMENT header is required",
+  "x402Version": 2,
+  "error": "...",
+  "resource": { "url": "https://<api>/api/jobs", "description": "Mesh render job (small)", "mimeType": "application/json" },
   "accepts": [
     {
       "scheme": "exact",
-      "network": "hedera-testnet",
-      "maxAmountRequired": "1000000",
-      "resource": "https://<api>/api/jobs",
-      "description": "Mesh render job",
-      "mimeType": "application/json",
-      "payTo": "0x…ESCROW_ADDRESS",
+      "network": "hedera:testnet",
+      "amount": "500000000",
+      "asset": "0.0.0",
+      "payTo": "0.0.<treasury account>",
       "maxTimeoutSeconds": 120,
-      "asset": "0x… or token id",
-      "extra": { "jobId": "0x…", "nonce": "0x…" }
+      "extra": { "feePayer": "0.0.<facilitator>" }
     }
   ]
 }
 ```
 
-The server **creates the job in `created` state** and returns its `jobId` in `extra`, so the nonce is the `jobId`. Unpaid `created` jobs expire after 5 minutes.
+- `asset` `0.0.0` is HBAR (tinybars; price units x 100, so `small` = 5 HBAR). An HTS token id (for example testnet USDC `0.0.429274`) is quoted 1:1 in price units. Set with `X402_ASSET`.
+- **Nothing is created at this step.** (v1 of this spec created a `created` job per challenge; that is gone.)
+- `payTo` is the treasury: `X402_PAY_TO`, or the API wallet's own Hedera account found through the mirror node.
 
 ### 9.2 Paid retry
 
-Client retries the **same body** with header `X-PAYMENT: <base64 payload>`. Server flow:
+The client retries the **same body** with `PAYMENT-SIGNATURE: <base64 payment payload>`. Server flow:
 
-1. Decode, verify via the facilitator (`X402_FACILITATOR_URL` or in-process).
-2. **Replay check:** `nonce`/payment id must be unused; persist before settling.
-3. Settle on Hedera; confirm the escrow `Locked` event.
-4. Set status `paid`, emit HCS `PAID`, return `200` with the job object and `X-PAYMENT-RESPONSE` header.
+1. If the job is above `AGENT_APPROVAL_THRESHOLD`: check the `X-Mesh-Approval` header (a World Agent Pass approval bound to this exact job; section 17). Missing or wrong gives `403` and **no payment is asked for**.
+2. Decode the payload and check it matches one of the quoted requirements; ask the facilitator to `verify` it (no side effects).
+3. Spend the approval (single use), **reserve the payment** (replay protection, `used_nonces`), then ask the facilitator to `settle` it on Hedera (the facilitator pays the network fee).
+4. Only now create the job: store `job.payment = {network, asset, amount, payer, transaction}`, event `payment`, status `paid`. Return `200` with the job and a `PAYMENT-RESPONSE` header (base64 settle response, `transaction` is the Hedera transaction id).
+
+The chain loop then mirrors the settled payment into escrow (docs/TRACKS.md 2.4, option B).
 
 ### 9.3 Failure cases
 
 | Case | Response |
 | --- | --- |
-| No/invalid payment | `402` (fresh challenge, same `jobId` if still `created`) |
+| No payment | `402` challenge |
+| Payment does not match the quote (amount, asset, recipient, network) or the facilitator rejects it | `402` fresh challenge with `error` text |
 | Replayed payment | `409` `{"error":"payment_replayed"}` |
-| Underpaid | `402` with `error: "insufficient_amount"` |
-| Policy denied (agent cap/allowlist) | `403` `{"error":"policy_denied","reason":"…"}` |
-| World check failed | `401` `{"error":"world_denied","reason":"expired|cancelled|invalid"}` |
-
-**[TBD-VERIFY]** the exact `scheme`, `network` string, and `asset` for Hedera, and whether the facilitator supports `payTo = contract`. See §14.
+| Facilitator down or unreachable | `503` `{"error":"facilitator_unavailable"}` |
+| Settlement failed | `402` (or `502` if the outcome is unknown; the payment stays reserved so it cannot be reused) |
+| Approval missing, pending, denied, expired, used or for a different job | `403` `approval_required` / `approval_denied` |
+| Settled but the job could not be stored | `500` `job_creation_failed_after_payment` with the transaction id, for a manual refund |
+| x402 not enabled and no dev skip | `503` `payment_not_configured` (`501` `x402_not_enabled` if a payment header arrives) |
 
 ---
 
@@ -531,11 +536,16 @@ Agent rules: pull image, verify the digest matches `imageDigest` **after** pulli
 
 | Method + path | Body / response |
 | --- | --- |
-| `GET /api/verifier/pending` | `{"jobs":[{"jobId","imageDigest","inputHash","merkleRoot","tileCount","providers":[…],"sample":{beacon,seed,k,indices},"windowEnd","tileHashes":["…"]}]}` (jobs in `pending` that still need a verdict) |
-| `POST /api/verifier/verdict` | `{"jobId","result":"ok|fraud","sample":{…},"fraud":FraudPayload|null,"finalizeTx":"0x…"|null,"fraudTx":"0x…"|null}` |
+| `POST /api/verifier/verdict` | `{"jobId","result":"ok|fraud","timestamp","signature","sample":{beacon,seed,k,indices}|null,"fraud":{tileIndex,owner,expectedTileHash,claimedTileHash,proof}|null,"finalizeTx":"0x…"|null,"fraudTx":"0x…"|null}` returns `{jobId,status,verdict}` |
 
-The verifier signs and sends `finalize` / `postFraud` itself with `VERIFIER_PRIVATE_KEY`, then reports the verdict to the API.
-`tileHashes` lets the verifier build Merkle proofs; tile bytes are fetched from `GET /api/jobs/:id/tiles/:index` when needed (only for sampled tiles).
+**Authentication.** `signature` is the verifier key's `personal_sign` (EIP-191) over the string `mesh-verdict:<jobId>:<result>:<timestamp>` (`timestamp` in unix seconds, at most 120 s off the server clock). The server checks it against `VERIFIER_ADDRESS`, or, if unset, the `verifier()` the receipt contract trusts. A wrong signer is `401 unauthorized`; a stale timestamp is `401 stale_timestamp`. Signing the result into the message means an `ok` cannot be turned into a `fraud`.
+
+**What the server does.**
+- `ok`: records the verdict and sample. The chain loop finalizes after the challenge window (the contract pays the providers). If `finalizeTx` is given (the verifier finalized itself) the job becomes `final` once the chain confirms it.
+- `fraud` (needs the `fraud` object): job goes `rejected`. When the receipt contract shows `Rejected` (the verifier's `postFraud` mined, which slashes the provider and refunds the requester in the same transaction), the job goes `slashed` then `refunded`. If the verifier never reports, the chain loop adopts a `Rejected` receipt by itself.
+- The same verdict twice is a no-op; a verdict for a job that is not `pending`, or already has one, is `409 invalid_state`.
+
+The verifier signs and sends `finalize` / `postFraud` itself with `VERIFIER_PRIVATE_KEY`, then reports. It finds work by polling `GET /api/jobs` (jobs in `pending`); the `GET /api/verifier/pending` listing in earlier drafts was not needed and is not built. Tile bytes come from `GET /api/jobs/:id/tiles/:index`.
 
 ### 10.4 SSE events (`GET /api/jobs/:id/events`)
 
@@ -588,6 +598,8 @@ One topic (`HCS_TOPIC_ID`). Every message is JSON ≤ 1 KB:
 - `SAMPLE.data` includes `beacon`, `seed`, `indices`.
 - `VERDICT.data` includes the fraud payload or `ok`.
 - The API stores the returned HCS **sequence number** in `job.hcsSequence[]`.
+
+**As built** (`src/lib/hcs.ts`): the log is derived from the `job_events` table, so nothing can forget to publish. Mapping: `payment` -> `PAID`, `assigned` -> `ASSIGNED`, `claim` -> `CLAIM` (with each provider's claim signature), `sample` -> `SAMPLE`, `verdict` -> `VERDICT`, settlement `released|slashed|refunded` -> `RELEASE|SLASH|REFUND`, `approval` -> `APPROVAL` (added: a human approved this job). Tile uploads are not published (64 per job). Events are published in order by the chain loop; a failed submission is retried on the next pass, never skipped. A message over 1000 bytes is replaced by its type plus a SHA-256 of the full data. The topic has a submit key (the API wallet), so only the API can write to it. Create it once with `npm run hcs:create-topic`. `GET /api/receipts/:jobId` returns `hcs: {topicId, sequences, hashscan}` and the HashScan link for the x402 payment.
 
 ---
 

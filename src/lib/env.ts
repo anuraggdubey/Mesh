@@ -20,6 +20,10 @@ const schema = z.object({
   HEDERA_CHAIN_ID: z.preprocess(blank, z.coerce.number().int().positive().default(296)),
 
   RECEIPT_ADDRESS: address,
+  // HCS audit topic (create it once with `npm run hcs:create-topic`). Empty = no audit log.
+  HCS_TOPIC_ID: z.preprocess(blank, z.string().regex(/^0\.0\.[0-9]+$/, "must look like 0.0.1234").optional()),
+  // The address allowed to report verdicts. Empty = read `verifier()` from the receipt contract.
+  VERIFIER_ADDRESS: z.preprocess(blank, z.string().regex(/^0x[0-9a-fA-F]{40}$/).optional()),
   STAKE_ADDRESS: address,
   ESCROW_ADDRESS: address,
   PAYMENT_TOKEN_ADDRESS: address,
@@ -61,6 +65,19 @@ const schema = z.object({
   AGENT_APPROVAL_THRESHOLD: z.preprocess(blank, z.string().regex(/^[0-9]+$/).optional()),
   // The approval's World authentication must be at most this old (seconds)
   AGENT_APPROVAL_MAX_AGE_SECONDS: z.preprocess(blank, z.coerce.number().int().positive().default(300)),
+
+  // ── x402 on Hedera (AI Agents That Pay track). See docs/TRACKS.md section 2 ──
+  X402_FACILITATOR_URL: z.preprocess(blank, z.string().url().default("https://x402.org/facilitator")),
+  // The older spelling "hedera-testnet" (from the first .env.example) is accepted and normalised.
+  X402_NETWORK: z.preprocess((v) => (typeof v === "string" ? blank(v.trim().replace(/^hedera-(testnet|mainnet)$/, "hedera:$1")) : blank(v)), z.string().regex(/^hedera:(testnet|mainnet)$/, 'must be "hedera:testnet" or "hedera:mainnet"').default("hedera:testnet")),
+  // Treasury that receives payments: a Hedera ACCOUNT id (0.0.x). If unset, the API wallet's own account is used (looked up by EVM address).
+  X402_PAY_TO: z.preprocess(blank, z.string().regex(/^0\.0\.[0-9]+$/, "must look like 0.0.1234").optional()),
+  // Payment asset: "0.0.0" is HBAR (no token association needed); an HTS token id such as testnet USDC 0.0.429274 also works.
+  X402_ASSET: z.preprocess(blank, z.string().regex(/^0\.0\.[0-9]+$/).default("0.0.0")),
+  X402_MAX_TIMEOUT_SECONDS: z.preprocess(blank, z.coerce.number().int().min(30).max(600).default(120)),
+  // Set to true (with a facilitator and treasury) to make POST /api/jobs an x402 endpoint.
+  X402_ENABLED: z.preprocess(blank, z.enum(["true", "false"]).default("false")).transform((v) => v === "true"),
+  MIRROR_NODE_URL: z.preprocess(blank, z.string().url().default("https://testnet.mirrornode.hedera.com")),
 
   // Dev only: register providers on chain WITHOUT a World ID proof (a derived placeholder nullifier is used).
   // NEVER enable in the demo or production: it defeats the one-human-one-provider rule.

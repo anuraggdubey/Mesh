@@ -215,9 +215,9 @@ Because Anurag's laptop is light, you need a second provider that is not him:
 
 ### Your part
 
-- [ ] **Step 12, verifier worker** (`workers/verifier`): seeded spot-check re-render, `finalize`/`postFraud`, fraud payload, report the verdict to the API. This is the demo's centerpiece (the cheat is caught). Job approval for finalize comes from your verdict (`verdict: "ok"`); until then the API uses the dev-only `MESH_DEV_AUTO_APPROVE`.
+- [ ] **Step 12, verifier worker** (`workers/verifier`): seeded spot-check re-render, `finalize`/`postFraud`, fraud payload, report the verdict to the API. **The endpoint exists now: `POST /api/verifier/verdict`, signed with the verifier key (job-spec 10.3: `personal_sign` over `mesh-verdict:<jobId>:<result>:<timestamp>`).** Send `fraudTx` / `finalizeTx` after your on-chain call; if you forget, the API adopts a `Rejected` receipt from the chain by itself. This is the demo's centerpiece (the cheat is caught). Job approval for finalize comes from your verdict (`verdict: "ok"`); until then the API uses the dev-only `MESH_DEV_AUTO_APPROVE`.
 - [ ] **Publish the render image to a registry both laptops can pull** (for example GitHub's container registry, public), then set `RENDER_IMAGE_REF` and `RENDER_IMAGE_DIGEST` in `.env`. The workers pull by digest.
-- [ ] **Provider onboarding with World ID:** once Anurag's `/provider/verify` page exists, put the proof JSON in `PROVIDER_WORLD_PROOF` and start the worker. The API enforces it when World is configured.
+- [ ] **Provider onboarding with World ID:** the `/provider/verify` page now exists (needs the World app values in `.env` first); put the proof JSON in `PROVIDER_WORLD_PROOF` and start the worker. The API enforces it when World is configured.
 - [ ] **Stake helper:** keep `scripts/stake-provider.ts`; document the exact commands in `docs/LOCAL-REHEARSAL.md`.
 - [ ] **Cross-OS check** of the real worker on the other OS (macOS arm64 is the only place Docker was verified by you; Windows is verified by Anurag).
 - [ ] `docs/QA.md`: record the detection-rate runs.

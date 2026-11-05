@@ -14,6 +14,10 @@ const KEYS = [
   "UNPAID_JOB_TTL_SECONDS",
   "RECEIPT_ADDRESS",
   "HEDERA_CHAIN_ID",
+  "HEDERA_RPC_URL",
+  "STAKE_ADDRESS",
+  "API_PRIVATE_KEY",
+  "MESH_DEV_SKIP_WORLD",
 ] as const;
 
 export const TEST_ESCROW = "0x16eFE46De1CdA06Be455607A63514319aE130010";
@@ -35,6 +39,9 @@ export function setupTestEnv(overrides: Partial<Record<(typeof KEYS)[number], st
   process.env.UNPAID_JOB_TTL_SECONDS = "300";
   process.env.RECEIPT_ADDRESS = TEST_RECEIPT;
   process.env.HEDERA_CHAIN_ID = "296";
+  process.env.MESH_DEV_SKIP_WORLD = "false";
+  process.env.STAKE_ADDRESS = ""; // chain access is off unless a test turns it on
+  process.env.API_PRIVATE_KEY = "";
   for (const [k, v] of Object.entries(overrides)) process.env[k] = v;
   resetEnvCache();
   closeDb();

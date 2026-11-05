@@ -36,9 +36,9 @@ export const RENDER_Y0 = "-6442450944"; // -1.5
 
 export const RENDER_PRESETS = {
   tiny: { width: 64, height: 64, gridCols: 2, gridRows: 2, maxIter: 500, step: "201326592" },
-  small: { width: 512, height: 512, gridCols: 8, gridRows: 8, maxIter: 2000, step: "25165824" },
-  // maxIter for `full` is tuned by Misbah so the whole job takes ~20-40 s on the provider machine
-  full: { width: 512, height: 512, gridCols: 8, gridRows: 8, maxIter: 20000, step: "25165824" },
+  small: { width: 2048, height: 2048, gridCols: 8, gridRows: 8, maxIter: 6000, step: "6291456" },
+  // Measured by Misbah (docs/QA.md): small ~4 s, full ~29 s for all 64 tiles on the provider machine
+  full: { width: 2048, height: 2048, gridCols: 8, gridRows: 8, maxIter: 48000, step: "6291456" },
 } as const;
 export type RenderPreset = keyof typeof RENDER_PRESETS;
 export const RENDER_PRESET_NAMES = Object.keys(RENDER_PRESETS) as [RenderPreset, ...RenderPreset[]];

@@ -129,10 +129,10 @@ Row-major: `index = row * gridCols + col`, `row` and `col` start at 0 at the top
 | Preset | width×height | grid | maxIter | `step` | Use |
 | --- | --- | --- | --- | --- | --- |
 | `tiny` | 64×64 | 2×2 (4 tiles) | 500 | `201326592` | cross-OS determinism test on weak machines |
-| `small` | 512×512 | 8×8 (64) | 2000 | `25165824` | rehearsals, cheat run |
-| `full` | 512×512 | 8×8 (64) | 20000 (tune) | `25165824` | the heavy demo |
+| `small` | 2048×2048 | 8×8 (64) | 6000 | `6291456` | rehearsals, cheat run (~5 s) |
+| `full` | 2048×2048 | 8×8 (64) | 48000 | `6291456` | the heavy demo (~30 s) |
 
-`x0 = -8589934592` (−2.0), `y0 = -6442450944` (−1.5) for all presets. Misbah tunes `full.maxIter` so the whole job takes ~20–40 s on the provider machine, then updates this table.
+`x0 = -8589934592` (−2.0), `y0 = -6442450944` (−1.5) for all presets. The `small` and `full` presets were measured on Misbah's provider machine using the final `linux/amd64` image, 15 CPUs, and a 1 GiB memory limit: 4.06 s and 28.87 s respectively for all 64 tiles. Runtime varies with available CPU; rehearse on the actual provider machine.
 
 > `tiny` has 4 tiles, a power of two, so it is valid.
 

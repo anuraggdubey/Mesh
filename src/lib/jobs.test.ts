@@ -15,7 +15,7 @@ import {
   updateJob,
 } from "./jobs";
 import { getDb } from "./db";
-import { renderInputHash } from "./hash";
+import { renderInputHash } from "./render-input";
 import { TEST_REQUESTER, useTempEnv } from "./testing";
 
 describe("state machine", () => {
@@ -98,7 +98,7 @@ describe("jobs store", () => {
     expect(job.tiles[0]).toEqual({ index: 0, owner: null, status: "pending", tileHash: null });
     expect(job.inputHash).toBe(renderInputHash("small"));
     expect(job.price).toBe("500000");
-    expect(job.params).toMatchObject({ preset: "small", width: 512, maxIter: 2000 });
+    expect(job.params).toMatchObject({ preset: "small", width: 2048, maxIter: 6000 });
   });
 
   it("tiny preset has 4 tiles (a power of two)", () => {

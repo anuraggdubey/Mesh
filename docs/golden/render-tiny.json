@@ -1,0 +1,20 @@
+{
+  "spec": "render-v1",
+  "preset": "tiny",
+  "width": 64,
+  "height": 64,
+  "gridCols": 2,
+  "gridRows": 2,
+  "x0": "-8589934592",
+  "y0": "-6442450944",
+  "step": "201326592",
+  "maxIter": 500,
+  "tileBytes": 2048,
+  "comparison": "byte-identical on macOS arm64 and linux/amd64 Docker",
+  "tileHashes": {
+    "0": "b6da23b3f873803f938d25c604cf348ebc5c792b74c591ab0bc720f07f72fae9",
+    "1": "a419d86e3f165f7ffaafb554c3d9afe097af38f369db1c777b496c76acdfe699",
+    "2": "6ebb86329cb4431c84397f66c00686d625061ec0ccbc83281969ebefce8d93d6",
+    "3": "3cf2f8f5d210fd3007e92dd8aa55cf1eca31091314b1203f2d820c54c4e36f31"
+  }
+}

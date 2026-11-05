@@ -30,7 +30,7 @@ Hedera (x402), 0G (Private Computer), World (IDKit or Agent Pass).
 | API foundation: env validation, SQLite store, job state machine, `GET /api/health`, `POST/GET /api/jobs`, `GET /api/jobs/:id` | Done on branch `feat/api-foundation` (51 tests). Provider/verifier endpoints and live events still to do |
 | x402 payment + escrow link | Not started |
 | Requester UI, live tile grid, receipt explorer | Not started |
-| Provider worker, verifier worker, job images | In progress (Misbah): deterministic render job image (Go) is on branch `codex/misbah-render`, not merged to `main` yet; workers are still stubs |
+| Provider worker, verifier worker, job images | In progress (Misbah): deterministic render and echo job images (Go/Docker) and SHA-256/Merkle helpers are merged to `main`; the provider and verifier workers are still stubs |
 | World ID, HCS audit log, scripted agent | Not started |
 | 0G inference job | Not started |
 

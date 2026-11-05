@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 import { getDb, transaction } from "./db";
 import { getEnv } from "./env";
 import { assertTransition } from "./state-machine";
-import { renderInputHash } from "./hash";
+import { renderInputHash } from "./render-input";
 import { RENDER_PRESETS, RENDER_PRICE, TILE_COUNT_DEFAULT } from "./constants";
 import type { JobStatus } from "./constants";
 import type { CreateJobBody, Job, Tile } from "./types";

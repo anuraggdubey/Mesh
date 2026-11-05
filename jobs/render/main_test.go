@@ -61,3 +61,13 @@ func TestValidateRejectsInvalidGridAndDuplicateTiles(t *testing.T) {
 		t.Fatal("inexact step should be rejected")
 	}
 }
+
+func TestValidateAllowsLargeWidthWithExactStep(t *testing.T) {
+	job := input{
+		Spec: "render-v1", Width: 1 << 30, Height: 1 << 10, GridCols: 1 << 8, GridRows: 1 << 8,
+		X0: "-8589934592", Y0: "-6442450944", Step: "12", MaxIter: 1, Tiles: []int{0},
+	}
+	if _, err := validate(job); err != nil {
+		t.Fatalf("valid exact-step dimensions rejected: %v", err)
+	}
+}

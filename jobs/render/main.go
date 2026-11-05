@@ -118,8 +118,8 @@ func validate(job input) (renderConfig, error) {
 	if job.MaxIter < 1 || job.MaxIter > math.MaxUint16 {
 		return renderConfig{}, errors.New("maxIter must be between 1 and 65535")
 	}
-	if job.Width > math.MaxInt64/int(fixedThree) {
-		return renderConfig{}, errors.New("width is too large for exact fixed-point step validation")
+	if int64(job.Width) > int64(1)<<fractionBits {
+		return renderConfig{}, errors.New("width must be at most 2^32 for an exact positive fixed-point step")
 	}
 
 	x0, err := strconv.ParseInt(job.X0, 10, 64)

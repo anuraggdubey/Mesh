@@ -1,5 +1,3 @@
-import { createHash, randomBytes } from "node:crypto";
-import { readFile } from "node:fs/promises";
 import { arch, cpus, loadavg, platform, totalmem } from "node:os";
 import {
   formatEther,
@@ -13,6 +11,7 @@ import {
 import { privateKeyToAccount } from "viem/accounts";
 import { meshReceiptAbi } from "@/lib/abi/MeshReceipt";
 import { meshStakeAbi } from "@/lib/abi/MeshStake";
+import { ProviderClient, type ClientTask } from "@/lib/provider-client";
 import {
   runDockerTask,
   type ProviderTask,
@@ -23,50 +22,6 @@ const HEARTBEAT_MS = 5_000;
 const POLL_WAIT_SECONDS = 20;
 const MAX_INPUT_BYTES = 64 * 1024;
 const FAILURE_LOG_BYTES = 4_000;
-
-export type ProviderRegistration = {
-  address: Address;
-  signature: Hex;
-  nonce: string;
-  cores: number;
-  memoryGb: number;
-  os: string;
-  arch: string;
-  agentVersion: string;
-  worldProof?: Record<string, unknown>;
-};
-
-export function sha256Hex(bytes: Uint8Array): string {
-  return createHash("sha256").update(bytes).digest("hex");
-}
-
-export function createRegistrationNonce(
-  timestamp = Date.now(),
-  random = randomBytes(16).toString("hex"),
-): string {
-  return `${timestamp}-${random}`;
-}
-
-export function computeTilesDigest(
-  tiles: Array<Pick<TileOutput, "index" | "tileHash">>,
-): Hex {
-  if (tiles.length === 0) throw new Error("Cannot sign a claim without tiles");
-  const ordered = [...tiles].sort((a, b) => a.index - b.index);
-  const encoded = Buffer.concat(
-    ordered.map(({ index, tileHash }) => {
-      if (!Number.isInteger(index) || index < 0 || index > 65535) {
-        throw new Error(`Invalid tile index ${index}`);
-      }
-      if (!/^[a-f0-9]{64}$/.test(tileHash)) {
-        throw new Error(`Invalid tile hash for tile ${index}`);
-      }
-      const indexBytes = Buffer.alloc(2);
-      indexBytes.writeUInt16BE(index);
-      return Buffer.concat([indexBytes, Buffer.from(tileHash, "hex")]);
-    }),
-  );
-  return `0x${sha256Hex(encoded)}`;
-}
 
 export function classifyFailure(
   error: unknown,
@@ -87,7 +42,7 @@ export function configureProviderCli(args: string[]): boolean {
     if (arg === "--help" || arg === "-h") {
       process.stdout.write(
         "Usage: npm run worker:provider -- [--api <url>] [--tamper]\n" +
-          "Set PROVIDER_PRIVATE_KEY and either PROVIDER_TOKEN or PROVIDER_WORLD_PROOF_FILE in .env.\n",
+          "Set PROVIDER_PRIVATE_KEY in .env; the worker registers and obtains its API token on startup.\n",
       );
       return false;
     }
@@ -108,177 +63,21 @@ export function configureProviderCli(args: string[]): boolean {
   return true;
 }
 
-class ProviderApi {
-  private readonly root: URL;
-
-  constructor(
-    baseUrl: string,
-    private token?: string,
-  ) {
-    this.root = new URL(`${baseUrl.replace(/\/+$/, "")}/api/`);
-  }
-
-  setToken(token: string): void {
-    this.token = token;
-  }
-
-  private async request(
-    path: string,
-    init: RequestInit = {},
-    timeoutMs = 30_000,
-  ): Promise<Response> {
-    const headers = new Headers(init.headers);
-    if (this.token) headers.set("Authorization", `Bearer ${this.token}`);
-    const timeoutSignal = AbortSignal.timeout(timeoutMs);
-    const signal = init.signal
-      ? AbortSignal.any([init.signal, timeoutSignal])
-      : timeoutSignal;
-    const response = await fetch(new URL(path.replace(/^\/+/, ""), this.root), {
-      ...init,
-      headers,
-      signal,
-    });
-    if (!response.ok) {
-      const body = (await response.text()).slice(0, 1000);
-      throw new Error(
-        `API ${init.method ?? "GET"} ${path} returned ${response.status}: ${body}`,
-      );
-    }
-    return response;
-  }
-
-  async register(
-    body: ProviderRegistration,
-  ): Promise<{ providerId: string; token: string }> {
-    const response = await this.request("providers/register", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    const result = (await response.json()) as {
-      providerId?: unknown;
-      token?: unknown;
-    };
-    if (
-      typeof result.providerId !== "string" ||
-      typeof result.token !== "string"
-    ) {
-      throw new Error(
-        "Provider registration response is missing providerId or token",
-      );
-    }
-    return { providerId: result.providerId, token: result.token };
-  }
-
-  async heartbeat(load: number, currentTask: string | null): Promise<void> {
-    await this.request("providers/heartbeat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ load, currentTask }),
-    });
-  }
-
-  async pollTasks(signal: AbortSignal): Promise<ProviderTask[]> {
-    const response = await this.request(
-      `providers/tasks?wait=${POLL_WAIT_SECONDS}`,
-      { signal },
-      (POLL_WAIT_SECONDS + 10) * 1000,
-    );
-    const body = (await response.json()) as { tasks?: unknown };
-    if (!Array.isArray(body.tasks))
-      throw new Error("Task poll response must contain a tasks array");
-    return body.tasks.map(parseProviderTask);
-  }
-
-  async getInput(jobId: string, signal: AbortSignal): Promise<Uint8Array> {
-    const response = await this.request(
-      `jobs/${encodeURIComponent(jobId)}/input`,
-      { signal },
-    );
-    const contentLength = Number(response.headers.get("content-length") ?? 0);
-    if (contentLength > MAX_INPUT_BYTES)
-      throw new Error("Job input exceeds the 64 KiB limit");
-    const bytes = new Uint8Array(await response.arrayBuffer());
-    if (bytes.byteLength > MAX_INPUT_BYTES)
-      throw new Error("Job input exceeds the 64 KiB limit");
-    return bytes;
-  }
-
-  async uploadTile(
-    jobId: string,
-    tile: TileOutput,
-    signal: AbortSignal,
-  ): Promise<void> {
-    await this.request(
-      `jobs/${encodeURIComponent(jobId)}/tiles/${tile.index}`,
-      {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/octet-stream",
-          "X-Tile-Hash": tile.tileHash,
-        },
-        body: new Uint8Array(tile.bytes),
-        signal,
-      },
-    );
-  }
-
-  async postClaim(
-    jobId: string,
-    body: {
-      provider: Address;
-      tilesDigest: Hex;
-      signature: Hex;
-      tiles: Array<{ index: number; tileHash: string }>;
-    },
-    signal: AbortSignal,
-  ): Promise<void> {
-    await this.request(`jobs/${encodeURIComponent(jobId)}/claim`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-      signal,
-    });
-  }
-
-  async postFailure(
-    jobId: string,
-    body: {
-      provider: Address;
-      reason:
-        | "timeout"
-        | "crash"
-        | "hash_mismatch"
-        | "killed"
-        | "attestation_missing";
-      logTail: string;
-    },
-  ): Promise<void> {
-    await this.request(`jobs/${encodeURIComponent(jobId)}/failure`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-  }
-}
-
-function parseProviderTask(value: unknown): ProviderTask {
-  if (!value || typeof value !== "object")
-    throw new Error("Task must be a JSON object");
-  const task = value as Partial<ProviderTask>;
+function parseProviderTask(value: ClientTask): ProviderTask {
   if (
-    typeof task.taskId !== "string" ||
-    typeof task.jobId !== "string" ||
-    typeof task.type !== "string" ||
-    typeof task.imageRef !== "string" ||
-    typeof task.imageDigest !== "string" ||
-    typeof task.inputHash !== "string" ||
-    !Array.isArray(task.tiles) ||
-    typeof task.timeoutSeconds !== "number"
+    !value ||
+    typeof value.taskId !== "string" ||
+    typeof value.jobId !== "string" ||
+    typeof value.type !== "string" ||
+    typeof value.imageRef !== "string" ||
+    typeof value.imageDigest !== "string" ||
+    typeof value.inputHash !== "string" ||
+    !Array.isArray(value.tiles) ||
+    typeof value.timeoutSeconds !== "number"
   ) {
     throw new Error("Task response is missing required fields");
   }
-  return task as ProviderTask;
+  return value as ProviderTask;
 }
 
 function log(message: string): void {
@@ -302,22 +101,6 @@ function requiredEnv(name: string): string {
   const value = process.env[name]?.trim();
   if (!value) throw new Error(`Missing required environment variable ${name}`);
   return value;
-}
-
-async function readWorldProofOptional(): Promise<
-  Record<string, unknown> | undefined
-> {
-  const path = process.env.PROVIDER_WORLD_PROOF_FILE;
-  if (!path) return undefined;
-  try {
-    const value: unknown = JSON.parse(await readFile(path, "utf8"));
-    if (!value || typeof value !== "object" || Array.isArray(value)) {
-      throw new Error("World proof must be a JSON object");
-    }
-    return value as Record<string, unknown>;
-  } catch {
-    throw new Error(`Could not read valid World ID proof JSON from ${path}`);
-  }
 }
 
 function createChain(rpcUrl: string) {
@@ -362,49 +145,53 @@ async function ensureStakeEligible(
   return { stake, minStake };
 }
 
-export async function signProviderClaim(
+async function processTask(
   task: ProviderTask,
-  account: ReturnType<typeof privateKeyToAccount>,
-  tiles: TileOutput[],
-  receiptAddress: Address,
-  chainId = Number(process.env.HEDERA_CHAIN_ID ?? "296"),
-): Promise<{ tilesDigest: Hex; signature: Hex }> {
-  if (!/^0x[a-fA-F0-9]{64}$/.test(task.jobId))
-    throw new Error("Task jobId must be a bytes32 hex value");
-  if (
-    !/^0x[a-fA-F0-9]{64}$/.test(`0x${task.imageDigest.replace(/^sha256:/, "")}`)
-  ) {
-    throw new Error("Task imageDigest must contain 32 digest bytes");
+  client: ProviderClient,
+  signal: AbortSignal,
+  tamperPercent: number,
+): Promise<void> {
+  if (task.type === "infer") {
+    await client.reportFailure(
+      task.jobId,
+      "attestation_missing",
+      "The infer worker is not implemented; this provider only runs isolated Docker jobs.",
+    );
+    return;
   }
-  if (!/^[a-fA-F0-9]{64}$/.test(task.inputHash))
-    throw new Error("Task inputHash must contain 32 hash bytes");
-  const tilesDigest = computeTilesDigest(tiles);
-  const signature = await account.signTypedData({
-    domain: {
-      name: "Mesh",
-      version: "1",
-      chainId,
-      verifyingContract: receiptAddress,
-    },
-    types: {
-      TileClaim: [
-        { name: "jobId", type: "bytes32" },
-        { name: "imageDigest", type: "bytes32" },
-        { name: "inputHash", type: "bytes32" },
-        { name: "provider", type: "address" },
-        { name: "tilesDigest", type: "bytes32" },
-      ],
-    },
-    primaryType: "TileClaim",
-    message: {
-      jobId: task.jobId as Hex,
-      imageDigest: `0x${task.imageDigest.replace(/^sha256:/, "")}` as Hex,
-      inputHash: `0x${task.inputHash}` as Hex,
-      provider: account.address,
-      tilesDigest,
+
+  const inputText = await client.getInput(task.jobId, signal);
+  const input = Buffer.from(inputText, "utf8");
+  if (input.byteLength > MAX_INPUT_BYTES)
+    throw new Error("Job input exceeds the 64 KiB limit");
+
+  const uploaded: TileOutput[] = [];
+  const outputs = await runDockerTask(task, input, {
+    cpus: process.env.PROVIDER_CPUS,
+    memory: process.env.PROVIDER_MEMORY,
+    dockerCommand: process.env.PROVIDER_DOCKER_COMMAND,
+    timeoutSeconds: Number(
+      process.env.JOB_TIMEOUT_SECONDS ?? task.timeoutSeconds,
+    ),
+    signal,
+    tamperPercent,
+    onTile: async (tile) => {
+      await client.putTile(task.jobId, tile.index, tile.bytes, signal);
+      uploaded.push(tile);
+      log(`Uploaded tile ${tile.index} (${tile.tileHash})`);
     },
   });
-  return { tilesDigest, signature };
+  if (outputs.length !== uploaded.length)
+    throw new Error("Not all output tiles were uploaded");
+
+  const result = await client.submitClaim(
+    task,
+    outputs.map(({ index, tileHash }) => ({ index, tileHash })),
+    signal,
+  );
+  log(
+    `Claim submitted for job ${task.jobId}; ${result.claimed}/${result.of} providers claimed${result.merkleRoot ? `; merkleRoot=${result.merkleRoot}` : ""}`,
+  );
 }
 
 export async function startProviderWorker(
@@ -427,12 +214,22 @@ export async function startProviderWorker(
   }
   const stakeAddress = stakeAddressValue as Address;
   const receiptAddress = receiptAddressValue as Address;
+  const chainId = Number(process.env.HEDERA_CHAIN_ID ?? "296");
   const chain = createChain(requiredEnv("HEDERA_RPC_URL"));
   const publicClient = createPublicClient({ chain, transport: http() });
-  const api = new ProviderApi(
-    apiUrl,
-    process.env.PROVIDER_TOKEN?.trim() || undefined,
-  );
+  const api = new ProviderClient({
+    baseUrl: apiUrl,
+    account,
+    chainId,
+    receiptAddress,
+    hardware: {
+      cores: cpus().length,
+      memoryGb: Math.round((totalmem() / 1024 ** 3) * 100) / 100,
+      os: platform(),
+      arch: arch(),
+    },
+    agentVersion: process.env.MESH_AGENT_VERSION ?? "0.1.0",
+  });
   const abortController = new AbortController();
   let currentTask: string | null = null;
   let heartbeatRunning = false;
@@ -442,30 +239,8 @@ export async function startProviderWorker(
   options.signal?.addEventListener("abort", stop, { once: true });
   if (options.signal?.aborted) stop();
 
-  const proof = apiTokenPresent() ? undefined : await readWorldProofOptional();
-  if (!apiTokenPresent()) {
-    const nonce = createRegistrationNonce();
-    const registrationMessage = `mesh-register:${nonce}`;
-    const signature = await account.signMessage({
-      message: registrationMessage,
-    });
-    const registration = await api.register({
-      address: account.address,
-      signature,
-      nonce,
-      cores: cpus().length,
-      memoryGb: Math.round((totalmem() / 1024 ** 3) * 100) / 100,
-      os: platform(),
-      arch: arch(),
-      agentVersion: process.env.MESH_AGENT_VERSION ?? "0.1.0",
-      worldProof: proof,
-    });
-    api.setToken(registration.token);
-    log(`Registered provider ${registration.providerId} (${account.address})`);
-  } else {
-    log(`Using configured provider token for ${account.address}`);
-  }
-
+  const registration = await api.register(abortController.signal);
+  log(`Registered provider ${registration.providerId} (${account.address})`);
   const { stake, minStake } = await ensureStakeEligible(
     account.address,
     publicClient,
@@ -475,6 +250,7 @@ export async function startProviderWorker(
   log(
     `Provider stake eligibility verified on Hedera testnet (${formatEther(stake)} HBAR staked; ${formatEther(minStake)} HBAR required)`,
   );
+
   const tamperEnabled = process.env.MESH_TAMPER?.toLowerCase() === "true";
   const tamperPercent = tamperEnabled
     ? Number(process.env.MESH_TAMPER_PERCENT ?? "20")
@@ -487,11 +263,10 @@ export async function startProviderWorker(
       "MESH_TAMPER_PERCENT must be between 1 and 100 when tamper mode is enabled",
     );
   }
-  if (tamperEnabled) {
+  if (tamperEnabled)
     log(
       `!!! TAMPER MODE ENABLED: corrupting ${tamperPercent}% of task tiles before hashing !!!`,
     );
-  }
 
   const heartbeatLoop = async () => {
     while (!abortController.signal.aborted) {
@@ -500,11 +275,13 @@ export async function startProviderWorker(
         try {
           const cores = Math.max(1, cpus().length);
           const load = Math.max(0, Math.min(1, loadavg()[0] / cores));
-          await api.heartbeat(load, currentTask);
+          await api.heartbeat(load, currentTask, abortController.signal);
         } catch (error) {
-          log(
-            `Heartbeat failed: ${error instanceof Error ? error.message : String(error)}`,
-          );
+          if (!abortController.signal.aborted) {
+            log(
+              `Heartbeat failed: ${error instanceof Error ? error.message : String(error)}`,
+            );
+          }
         } finally {
           heartbeatRunning = false;
         }
@@ -519,7 +296,9 @@ export async function startProviderWorker(
     while (!abortController.signal.aborted) {
       let tasks: ProviderTask[];
       try {
-        tasks = await api.pollTasks(abortController.signal);
+        tasks = (
+          await api.pollTasks(POLL_WAIT_SECONDS, abortController.signal)
+        ).map(parseProviderTask);
         retryDelay = 1000;
       } catch (error) {
         if (abortController.signal.aborted) break;
@@ -537,56 +316,7 @@ export async function startProviderWorker(
           `Received ${task.type} task ${task.taskId} for job ${task.jobId} (tiles ${task.tiles.join(",")})`,
         );
         try {
-          if (task.type === "infer") {
-            await api.postFailure(task.jobId, {
-              provider: account.address,
-              reason: "attestation_missing",
-              logTail:
-                "The infer worker is not implemented; this provider only runs isolated Docker jobs.",
-            });
-            continue;
-          }
-          const input = await api.getInput(task.jobId, abortController.signal);
-          const outputs: TileOutput[] = [];
-          const collected = await runDockerTask(task, input, {
-            cpus: process.env.PROVIDER_CPUS,
-            memory: process.env.PROVIDER_MEMORY,
-            dockerCommand: process.env.PROVIDER_DOCKER_COMMAND,
-            timeoutSeconds: Number(
-              process.env.JOB_TIMEOUT_SECONDS ?? task.timeoutSeconds,
-            ),
-            signal: abortController.signal,
-            tamperPercent,
-            onTile: async (tile) => {
-              await api.uploadTile(task.jobId, tile, abortController.signal);
-              outputs.push(tile);
-              log(`Uploaded tile ${tile.index} (${tile.tileHash})`);
-            },
-          });
-          if (collected.length !== outputs.length)
-            throw new Error("Not all output tiles were uploaded");
-          const { tilesDigest, signature } = await signProviderClaim(
-            task,
-            account,
-            collected,
-            receiptAddress,
-          );
-          await api.postClaim(
-            task.jobId,
-            {
-              provider: account.address,
-              tilesDigest,
-              signature,
-              tiles: collected.map(({ index, tileHash }) => ({
-                index,
-                tileHash,
-              })),
-            },
-            abortController.signal,
-          );
-          log(
-            `Claim submitted for job ${task.jobId}; tilesDigest=${tilesDigest}`,
-          );
+          await processTask(task, api, abortController.signal, tamperPercent);
         } catch (error) {
           const reason = classifyFailure(error, abortController.signal.aborted);
           const logTail = (
@@ -595,11 +325,7 @@ export async function startProviderWorker(
               : String(error)
           ).slice(-FAILURE_LOG_BYTES);
           try {
-            await api.postFailure(task.jobId, {
-              provider: account.address,
-              reason,
-              logTail,
-            });
+            await api.reportFailure(task.jobId, reason, logTail);
           } catch (reportError) {
             log(
               `Could not report task failure: ${reportError instanceof Error ? reportError.message : String(reportError)}`,
@@ -621,8 +347,4 @@ export async function startProviderWorker(
     options.signal?.removeEventListener("abort", stop);
     log("Provider worker stopped");
   }
-}
-
-function apiTokenPresent(): boolean {
-  return Boolean(process.env.PROVIDER_TOKEN?.trim());
 }

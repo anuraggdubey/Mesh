@@ -32,7 +32,6 @@ wallets/
 private-key*
 privatekey*
 hedera-keys*
-provider-world-proof.json
 .hedera/
 
 # ───────── Foundry (contracts/) ─────────

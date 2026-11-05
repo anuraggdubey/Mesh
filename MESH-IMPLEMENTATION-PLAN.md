@@ -302,19 +302,38 @@ mesh/
   docs/
     IMPLEMENTATION-PLAN.md ← this file (or keep at repo root)
     QA.md  DEMO.md  OG-STATUS.md  FEEDBACK-*.md
-  apps/
-    web/    Next.js + TypeScript + Tailwind: requester UI, live render, receipt explorer, provider panel
-    api/    Node (Hono or Next route handlers): jobs, x402 facilitator, World verify, verifier, HCS publisher
-    agent/  Node CLI + worker: provider runtime; scripted agent requester lives in packages/sdk
-  packages/
-    shared/ types, ABIs, chain IDs, hash/Merkle helpers
-    sdk/    createJob, payX402, waitForReceipt; scripted agent
-  contracts/  Foundry
-  jobs/
-    echo/  render/  matmul/  infer/
+  src/                     ← ONE Next.js (App Router) full-stack app: UI + API route handlers
+    app/                   pages (requester UI, live render, receipt explorer, provider panel, demo console)
+    app/api/               route handlers: jobs, providers, verify (World), receipts, x402 facilitator
+    components/            React components
+    lib/                   server+shared code: hashing/Merkle, chain clients, HCS, x402, World verify, DB, job-spec types
+  workers/                 long-running Node processes (run with `tsx`, NOT part of the Next server)
+    provider/              provider agent: pulls tiles, runs Docker, signs claims (Misbah's machine)
+    verifier/              verifier: seeded spot-check recompute, finalize/postFraud (Misbah's machine)
+  scripts/                 CLI scripts: scripted agent requester, deploy helpers, stake script
+  contracts/               Foundry project (src/, test/, script/)
+  jobs/                    Docker job images: echo/ render/ matmul/ infer/
+  docs/                    QA.md DEMO.md OG-STATUS.md FEEDBACK-*.md
+  data/                    local SQLite + tile blobs (git-ignored)
+  .env.example             committed template; real values live in .env.local / .env (git-ignored)
 ```
 
-**Stack:** TypeScript everywhere; Next.js for a demo-ready UI; Foundry for tests we can show; Docker for cross-OS jobs; Hedera JSON-RPC with viem/ethers; Hedera SDK for HCS.
+Workers and scripts import from `src/lib` through the `@/*` path alias (run with `tsx`, which honors `tsconfig` paths), so there is one copy of types, hashing, and ABIs.
+
+**Stack:** Next.js (App Router, TypeScript, Tailwind) full stack; viem + wagmi for chain access; `@hashgraph/sdk` for HCS; `x402`, `x402-fetch`, `x402-next` for payments; `@worldcoin/idkit` for World ID; `zod` for validation; `node:sqlite` (built into Node 24, no native build) for storage; `tsx` to run workers/scripts; `vitest` for unit tests; Foundry for contracts; Docker for job images.
+
+**Dev commands** (see `package.json`): `npm run dev` (Next app), `npm run worker:provider`, `npm run worker:verifier`, `npm run agent` (scripted requester), `npm run typecheck`, `npm test`, `npm run build`.
+
+### What must never be pushed (enforced by `.gitignore`)
+
+- Any `.env`, `.env.local`, `.env.*` file except `.env.example`.
+- Private keys, mnemonics, keystores, `*.pem`, `*.key`, `wallets/`, `secrets/`, Hedera operator keys.
+- World ID verify secret, 0G API key, facilitator keys.
+- Local data: `data/`, SQLite files, tile blobs, `output/`, `renders/`, `workspaces/`, `tmp/`.
+- Build output: `.next/`, `out/`, `dist/`, `node_modules/`, Foundry `contracts/out`, `cache`, `broadcast`.
+- Docker image tarballs, logs, editor and OS files.
+- **Safe to commit:** deployed contract addresses, public IDs (World app ID), `.env.example`, ABIs.
+- If a secret is ever committed: rotate the key immediately (testnet keys too), then remove it from history. Do not just delete the file in a new commit.
 
 **Environment variables** (never commit secrets; `.env.example` committed):
 - `HEDERA_RPC_URL`, `HEDERA_CHAIN_ID`, `DEPLOYER_PRIVATE_KEY`, `HEDERA_OPERATOR_ID/KEY`, `HCS_TOPIC_ID`

@@ -12,8 +12,8 @@ Read `MESH-IMPLEMENTATION-PLAN.md` first (especially §3 verification, §4 job t
 
 | Deliverable | Anurag needs it for | Needed by |
 | --- | --- | --- |
-| Tile format + job param spec (`packages/shared/job-spec.md`) | API tile splitting, UI | Thu 21:30 |
-| Merkle + hash helpers in `packages/shared` | API, receipt explorer | Thu 23:00 |
+| Tile format + job param spec (`docs/job-spec.md`) | API tile splitting, UI | Thu 21:30 |
+| Merkle + hash helpers in `src/lib` | API, receipt explorer | Thu 23:00 |
 | Provider agent talking to the agreed API | End-to-end flow | Thu 01:00 |
 | `jobs/render` image + digest | Job creation | Fri morning |
 | Claim signing format (EIP-712 or personal_sign, documented) | Contract `postClaim` | Thu 23:00 |
@@ -28,7 +28,7 @@ Agree the first three with Anurag at 21:00–21:30 Thursday before splitting.
 
 - [ ] Docker Desktop installed and **running**; test `docker run hello-world`.
 - [ ] `docker run --platform linux/amd64 hello-world` works (matters on Apple Silicon).
-- [ ] Node.js 20+, Git, pnpm/npm, Foundry optional (only to read ABIs).
+- [ ] Node.js 20+ (24 installed), Git, npm, Foundry optional (only to read ABIs).
 - [ ] Hedera testnet wallet created and funded; second wallet for the verifier key.
 - [ ] Machine tuned for demo: power plugged in, sleep disabled, thermal headroom, Docker resource limits set (CPU/RAM given to Docker Desktop).
 - [ ] Note your CPU core count and RAM; this decides tile size and iteration depth.
@@ -39,11 +39,11 @@ Agree the first three with Anurag at 21:00–21:30 Thursday before splitting.
 
 ## 2. Shared determinism spec (do first — everything depends on it)
 
-- [ ] Write `packages/shared/job-spec.md`: tile grid (e.g. 8×8), pixel/iteration parameters, fixed-point format (e.g. Q32.32 in 64-bit ints), seed handling, tile index → file name (`/output/tile-<i>`), output byte layout.
+- [ ] Write `docs/job-spec.md`: tile grid (e.g. 8×8), pixel/iteration parameters, fixed-point format (e.g. Q32.32 in 64-bit ints), seed handling, tile index → file name (`/output/tile-<i>`), output byte layout.
 - [ ] Integer-only math. No `float`/`double` anywhere in anything hashed.
 - [ ] One platform: `linux/amd64`. Document it.
 - [ ] Hash rules: SHA-256 lowercase hex over raw bytes; Merkle tree = binary, leaves = tile hashes ordered by index, odd node duplicated (or promoted — pick and document).
-- [ ] Implement `sha256`, `merkleRoot(leaves)`, `merkleProof(leaves, i)`, `verifyProof(...)` in `packages/shared` with unit tests (known vectors).
+- [ ] Implement `sha256`, `merkleRoot(leaves)`, `merkleProof(leaves, i)`, `verifyProof(...)` in `src/lib` with unit tests (known vectors).
 
 ---
 
@@ -74,7 +74,7 @@ Agree the first three with Anurag at 21:00–21:30 Thursday before splitting.
 
 ---
 
-## 4. Provider agent (`apps/agent`)
+## 4. Provider agent (`workers/provider`)
 
 Runs on your machine (and, in a limited mode, on Anurag's).
 
@@ -105,7 +105,7 @@ Runs on your machine (and, in a limited mode, on Anurag's).
 
 ---
 
-## 6. Verifier worker (`apps/verifier`) — heavy, runs on your machine
+## 6. Verifier worker (`workers/verifier`) — heavy, runs on your machine
 
 Recomputation is real CPU work, so it runs on your laptop.
 

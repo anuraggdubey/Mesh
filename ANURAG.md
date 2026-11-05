@@ -12,8 +12,8 @@ Read `MESH-IMPLEMENTATION-PLAN.md` first (§5 partners, §7 flow, §8 on-chain, 
 
 | From Misbah | You use it for | Needed by |
 | --- | --- | --- |
-| Tile format / job spec (`packages/shared/job-spec.md`) | Tile splitting, UI grid | Thu 21:30 |
-| Merkle/hash helpers (`packages/shared`) | API checks, explorer | Thu 23:00 |
+| Tile format / job spec (`docs/job-spec.md`) | Tile splitting, UI grid | Thu 21:30 |
+| Merkle/hash helpers (`src/lib`) | API checks, explorer | Thu 23:00 |
 | Claim signature format | `postClaim` signature check | Thu 23:00 |
 | `render` image digest | Job creation form | Fri morning |
 | Fraud payload format | `postFraud`, UI display | Fri afternoon |
@@ -25,13 +25,13 @@ You give Misbah: API endpoints, contract ABIs/addresses, 402 format, World provi
 
 ## 1. System setup (Thursday, first 30 min)
 
-- [ ] Node.js 20+, Git, pnpm/npm, Foundry (`foundryup`).
+- [ ] Node.js 20+ (24 installed), Git, npm, Foundry (`foundryup`).
 - [ ] Hedera testnet account(s) created and funded: deployer, requester/agent wallet, facilitator/operator.
 - [ ] Hedera operator ID/key for HCS (SDK).
 - [ ] World developer portal app created (App ID, action IDs `register-provider`, `create-job`).
 - [ ] `.env.example` committed (no secrets); local `.env` filled.
 - [ ] A way for Misbah's machine to reach the API: run the API on your laptop (LAN IP) **or** deploy it (Railway/Render/Vercel) or use a Cloudflare Tunnel. Test from Misbah's machine early.
-- [ ] Repo scaffold: pnpm workspaces, `apps/web`, `apps/api`, `packages/shared`, `packages/sdk`, `contracts/`, `docs/`.
+- [ ] Repo is ONE Next.js full-stack app (`npm install`, `npm run dev`); workers in `workers/`, scripts in `scripts/`, Foundry in `contracts/`, job images in `jobs/`.
 - [ ] `README.md` stub, `AI.md` started, plan copied to `docs/IMPLEMENTATION-PLAN.md`.
 - [ ] Small, frequent commits from the start.
 
@@ -65,14 +65,14 @@ Keep small. Rich events.
 ### 2.4 Tests and deploy
 - [ ] `forge test`: cannot release without `final`; no double release; fraud → slash + refund; replay-safe job IDs; Merkle proof accept/reject; wrong signer rejected; challenge window respected.
 - [ ] `MockStable.sol` only if Hedera test USDC is unusable.
-- [ ] Deploy to Hedera testnet; write addresses to `.env.example` and `packages/shared`; export ABIs.
+- [ ] Deploy to Hedera testnet; write addresses to `.env.example` and `src/lib`; export ABIs.
 - [ ] Verify contracts on HashScan if possible.
 
 ---
 
-## 3. Backend API (`apps/api`)
+## 3. Backend API (`src/app/api + src/lib`)
 
-Node + TypeScript (Hono recommended). Storage: SQLite or Postgres (Neon) plus a file/blob store for tiles/inputs. Keep it simple.
+Next.js route handlers (`src/app/api`) with logic in `src/lib`. Storage: `node:sqlite` (built into Node 24) under `data/`, plus a file store for tiles/inputs. Keep it simple.
 
 ### 3.1 Endpoints
 - [ ] `POST /jobs` → 402 or create `paid` job.
@@ -123,7 +123,7 @@ Node + TypeScript (Hono recommended). Storage: SQLite or Postgres (Neon) plus a 
 
 ---
 
-## 4. Scripted agent requester (`packages/sdk`)
+## 4. Scripted agent requester (`scripts/`)
 
 - [ ] `createJob`, `payX402`, `waitForReceipt` functions.
 - [ ] CLI script: has a wallet, a budget, a per-job cap, an image allowlist; posts a render job, pays via x402 **with no human click**, waits for the receipt, prints HashScan links.
@@ -132,7 +132,7 @@ Node + TypeScript (Hono recommended). Storage: SQLite or Postgres (Neon) plus a 
 
 ---
 
-## 5. Frontend (`apps/web`)
+## 5. Frontend (`src/app + src/components`)
 
 Next.js (App Router) + TypeScript + Tailwind. Demo-ready, clean, big fonts.
 
@@ -163,7 +163,7 @@ Next.js (App Router) + TypeScript + Tailwind. Demo-ready, clean, big fonts.
 
 ## 6. Integrations and glue
 
-- [ ] ABIs and addresses from `contracts/` into `packages/shared`.
+- [ ] ABIs and addresses from `contracts/` into `src/lib`.
 - [ ] viem client config for Hedera testnet (chain ID, RPC, second RPC fallback).
 - [ ] Shared types: Job, Tile, Claim, Receipt.
 - [ ] Error-handling convention and logging (pino/console with job IDs).

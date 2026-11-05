@@ -6,21 +6,40 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "format": "prettier --write .",
+    "worker:provider": "tsx workers/provider/index.ts",
+    "worker:verifier": "tsx workers/verifier/index.ts",
+    "agent": "tsx scripts/agent.ts"
   },
   "dependencies": {
+    "@hashgraph/sdk": "^2.81.0",
+    "@tanstack/react-query": "^5.106.1",
+    "@worldcoin/idkit": "^4.6.0",
+    "dotenv": "^18.0.9",
     "next": "16.4.5",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "viem": "^2.57.16",
+    "wagmi": "^3.7.11",
+    "x402": "^1.2.0",
+    "x402-fetch": "^1.2.0",
+    "x402-next": "^1.2.0",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@tailwindcss/turbopack": "^4",
-    "@types/node": "^20",
+    "@types/node": "^24.19.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.4.5",
+    "prettier": "^3.9.10",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "tsx": "^4.23.15",
+    "typescript": "^5",
+    "vitest": "^5.1.0"
   }
 }

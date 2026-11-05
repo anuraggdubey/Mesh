@@ -37,6 +37,7 @@ export interface ProviderRow {
   arch: string;
   agentVersion: string;
   worldNullifier: string | null;
+  chainTx: string | null;
   registeredAt: number;
   lastSeen: number;
   load: number | null;
@@ -52,6 +53,7 @@ interface RawProvider {
   arch: string;
   agent_version: string;
   world_nullifier: string | null;
+  chain_tx: string | null;
   registered_at: number;
   last_seen: number;
   load: number | null;
@@ -67,6 +69,7 @@ const fromRaw = (r: RawProvider): ProviderRow => ({
   arch: r.arch,
   agentVersion: r.agent_version,
   worldNullifier: r.world_nullifier,
+  chainTx: r.chain_tx,
   registeredAt: r.registered_at,
   lastSeen: r.last_seen,
   load: r.load,
@@ -156,6 +159,10 @@ export function touchProvider(address: string, patch: { load?: number | null; cu
   getDb().prepare(`UPDATE providers SET ${sets.join(", ")} WHERE address = ?`).run(...args, address.toLowerCase());
 }
 
+export function setProviderChainTx(address: string, txHash: string): void {
+  getDb().prepare("UPDATE providers SET chain_tx = ? WHERE address = ?").run(txHash, address.toLowerCase());
+}
+
 export function getProvider(address: string): ProviderRow | null {
   const row = getDb().prepare("SELECT * FROM providers WHERE address = ?").get(address.toLowerCase()) as RawProvider | undefined;
   return row ? fromRaw(row) : null;
@@ -193,6 +200,7 @@ export function publicProvider(p: ProviderRow & { online?: boolean }) {
     arch: p.arch,
     agentVersion: p.agentVersion,
     worldVerified: p.worldNullifier !== null,
+    chainRegistered: p.chainTx !== null,
     lastSeen: p.lastSeen,
     online: p.online ?? isOnline(p),
     load: p.load,

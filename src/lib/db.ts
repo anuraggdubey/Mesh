@@ -50,6 +50,7 @@ CREATE TABLE IF NOT EXISTS providers (
   arch           TEXT NOT NULL,
   agent_version  TEXT NOT NULL,
   world_nullifier TEXT,
+  chain_tx       TEXT,               -- tx hash of MeshStake.registerProvider (null until registered on chain)
   registered_at  INTEGER NOT NULL,
   last_seen      INTEGER NOT NULL,
   load           REAL,
@@ -85,6 +86,16 @@ CREATE TABLE IF NOT EXISTS used_nonces (
 );
 `;
 
+/** Add columns introduced after a database file was first created (CREATE TABLE IF NOT EXISTS never alters). */
+function ensureColumn(db: DatabaseSync, table: string, column: string, definition: string): void {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
+  if (!cols.some((c) => c.name === column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+}
+
+function migrate(db: DatabaseSync): void {
+  ensureColumn(db, "providers", "chain_tx", "TEXT");
+}
+
 type GlobalWithDb = typeof globalThis & { __meshDb?: { path: string; db: DatabaseSync } };
 
 export function dbPath(): string {
@@ -103,6 +114,7 @@ export function getDb(): DatabaseSync {
   db.exec("PRAGMA journal_mode = WAL;");
   db.exec("PRAGMA foreign_keys = ON;");
   db.exec(SCHEMA);
+  migrate(db);
   g.__meshDb = { path: p, db };
   return db;
 }

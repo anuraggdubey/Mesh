@@ -24,6 +24,18 @@ const schema = z.object({
   ESCROW_ADDRESS: address,
   PAYMENT_TOKEN_ADDRESS: address,
 
+  // Backend wallet that calls the contracts' onlyApi functions (registerProvider, lock, postClaim, ...). SECRET.
+  API_PRIVATE_KEY: z.preprocess(
+    (v) => {
+      const s = blank(v);
+      return typeof s === "string" && /^[0-9a-fA-F]{64}$/.test(s) ? `0x${s}` : s;
+    },
+    z
+      .string()
+      .regex(/^0x[0-9a-fA-F]{64}$/, "must be a 32-byte hex private key")
+      .optional(),
+  ),
+
   MIN_STAKE_WEI: z.preprocess(blank, z.string().regex(/^\d+$/).default("500000000000000000")),
   JOB_TIMEOUT_SECONDS: z.preprocess(blank, z.coerce.number().int().positive().default(120)),
   UNPAID_JOB_TTL_SECONDS: z.preprocess(blank, z.coerce.number().int().positive().default(300)),
@@ -31,6 +43,10 @@ const schema = z.object({
   // Image the providers must run for `render` jobs. Misbah sets the real digest once the image is built.
   RENDER_IMAGE_REF: z.preprocess(blank, z.string().default("mesh/render:dev")),
   RENDER_IMAGE_DIGEST: z.preprocess(blank, z.string().regex(/^sha256:[0-9a-f]{64}$/).default(`sha256:${"0".repeat(64)}`)),
+
+  // Dev only: register providers on chain WITHOUT a World ID proof (a derived placeholder nullifier is used).
+  // NEVER enable in the demo or production: it defeats the one-human-one-provider rule.
+  MESH_DEV_SKIP_WORLD: z.preprocess(blank, z.enum(["true", "false"]).default("false")).transform((v) => v === "true"),
 
   // Dev only: skip the x402 payment step and mark new jobs as paid. NEVER enable in the demo or in production.
   MESH_DEV_SKIP_PAYMENT: z.preprocess(blank, z.enum(["true", "false"]).default("false")).transform((v) => v === "true"),

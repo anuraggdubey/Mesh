@@ -12,10 +12,13 @@ const KEYS = [
   "PAYMENT_TOKEN_ADDRESS",
   "API_PUBLIC_URL",
   "UNPAID_JOB_TTL_SECONDS",
+  "RECEIPT_ADDRESS",
+  "HEDERA_CHAIN_ID",
 ] as const;
 
 export const TEST_ESCROW = "0x16eFE46De1CdA06Be455607A63514319aE130010";
 export const TEST_TOKEN = "0x9009A5B2070a97aAa81c6EB77A2507273Ba46Ee3";
+export const TEST_RECEIPT = "0x0118652ea87a8616Cb51979F5F121FC598bf3e7E";
 export const TEST_REQUESTER = "0x6834228cb6F180C05fA2154a2B2670d92c4FDf59";
 
 /** Point the app at a fresh temp database and a known environment. Returns a cleanup function. */
@@ -30,6 +33,8 @@ export function useTempEnv(overrides: Partial<Record<(typeof KEYS)[number], stri
   process.env.PAYMENT_TOKEN_ADDRESS = TEST_TOKEN;
   process.env.API_PUBLIC_URL = "http://localhost:3000";
   process.env.UNPAID_JOB_TTL_SECONDS = "300";
+  process.env.RECEIPT_ADDRESS = TEST_RECEIPT;
+  process.env.HEDERA_CHAIN_ID = "296";
   for (const [k, v] of Object.entries(overrides)) process.env[k] = v;
   resetEnvCache();
   closeDb();

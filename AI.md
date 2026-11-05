@@ -8,5 +8,6 @@ ETHGlobal requires documenting where AI tools helped. Keep this file current: ad
 | 2026-11-05 | Project scaffold, .gitignore, .env.example, README | Claude Code | Next.js scaffold, dependency selection, folder layout | Team reviewed |
 | 2026-11-05 | docs/job-spec.md | Claude Code | Drafted the shared job/API/contract spec | Team reviews and owns it |
 | 2026-11-05 | contracts/ (MeshStake, MeshEscrow, MeshReceipt, MockStable, MerkleSha256, tests, Deploy script), docs/DEPLOY.md | Claude Code | Wrote the Solidity contracts, 67 Foundry tests, deploy script and deploy guide | Team to review before testnet deploy |
+| 2026-11-06 | src/lib (constants, env, types, hash, merkle, db, jobs, state-machine), src/app/api (health, jobs), tests | Claude Code | Wrote the API foundation and its 51 tests | Team to review |
 
 Spec files used in AI-assisted workflows live in this repo (the plan and the two task files).

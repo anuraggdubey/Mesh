@@ -1,0 +1,10 @@
+{
+  "comment": "Golden vector verified on Hedera testnet: MeshReceipt.computeLeaf(5, tileHash, owner) matches an independent sha256 of 0x00 || 0x0005 || tileHash || owner. Both the TypeScript (src/lib/merkle.ts) and Solidity implementations must reproduce it.",
+  "receiptContract": "0x0118652ea87a8616Cb51979F5F121FC598bf3e7E",
+  "leaf": {
+    "index": 5,
+    "tileHash": "0x000000000000000000000000000000000000000000000000000000000000002a",
+    "owner": "0x6834228cb6F180C05fA2154a2B2670d92c4FDf59",
+    "expected": "0x4e18133543a1a3f9ecb3a65242abe1d7cf96b61eefcd2b64177b075d182be19e"
+  }
+}

@@ -43,6 +43,8 @@ export interface ProviderClientOptions {
   receiptAddress: Hex;
   hardware?: { cores: number; memoryGb: number; os: string; arch: string };
   agentVersion?: string;
+  /** IDKit result for the `register-provider` action. Required by servers that enforce World ID. */
+  worldProof?: Record<string, unknown>;
 }
 
 export class ProviderClient {
@@ -132,6 +134,7 @@ export class ProviderClient {
           os: hw.os,
           arch: hw.arch,
           agentVersion: this.opts.agentVersion ?? "client-0.1.0",
+          ...(this.opts.worldProof ? { worldProof: this.opts.worldProof } : {}),
         }),
       },
     );

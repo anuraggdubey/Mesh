@@ -229,6 +229,10 @@ export async function startProviderWorker(
       arch: arch(),
     },
     agentVersion: process.env.MESH_AGENT_VERSION ?? "0.1.0",
+    // IDKit proof of a unique human (from the /provider/verify page); needed when the API enforces World ID
+    worldProof: process.env.PROVIDER_WORLD_PROOF
+      ? (JSON.parse(process.env.PROVIDER_WORLD_PROOF) as Record<string, unknown>)
+      : undefined,
   });
   const abortController = new AbortController();
   let currentTask: string | null = null;

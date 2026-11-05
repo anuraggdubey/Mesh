@@ -1,8 +1,9 @@
 import { connection } from "next/server";
 import { json, jsonError, readJson } from "@/lib/api";
 import { chainWritesConfigured, devNullifier, registerProviderOnChain } from "@/lib/chain";
+import { assertNullifierAvailable, consumeNullifier, nullifierToBytes32, verifyIdkitProof, WorldDeniedError, worldEnforced } from "@/lib/world";
 import { getEnv } from "@/lib/env";
-import { registerBodySchema, registerProvider, RegistrationError, setProviderChainTx } from "@/lib/providers";
+import { registerBodySchema, registerProvider, RegistrationError, setProviderChainTx, setProviderNullifier } from "@/lib/providers";
 
 /**
  * POST /api/providers/register (docs/job-spec.md section 10.2). The caller signs "mesh-register:<nonce>" with
@@ -22,6 +23,20 @@ export async function POST(req: Request) {
     return json({ error: "invalid_body", issues: parsed.error.issues.map((i) => ({ path: i.path.join("."), message: i.message })) }, 400);
   }
 
+  // World ID gate: when IDKit is configured, registration requires a valid proof of a unique human. A missing,
+  // invalid or reused proof means the provider is NOT registered at all (the protected action does not happen).
+  let nullifier: string | null = null;
+  const env = getEnv();
+  if (worldEnforced() && !env.MESH_DEV_SKIP_WORLD) {
+    try {
+      nullifier = (await verifyIdkitProof("register-provider", parsed.data.worldProof)).nullifier;
+      assertNullifierAvailable(nullifier, "register-provider", parsed.data.address); // read-only: spend it only after the wallet signature checks out
+    } catch (e) {
+      if (e instanceof WorldDeniedError) return jsonError(e.reason === "verify_unavailable" ? 503 : 401, "world_denied", e.message, { reason: e.reason });
+      throw e;
+    }
+  }
+
   let result;
   try {
     result = await registerProvider(parsed.data);
@@ -33,15 +48,24 @@ export async function POST(req: Request) {
     throw err;
   }
 
-  const env = getEnv();
+  if (nullifier) {
+    try {
+      consumeNullifier(nullifier, "register-provider", result.address); // now that the wallet signature is verified
+    } catch (e) {
+      if (e instanceof WorldDeniedError) return jsonError(401, "world_denied", e.message, { reason: e.reason });
+      throw e;
+    }
+    setProviderNullifier(result.address, nullifier);
+  }
   const chain: { registered: boolean; txHash: string | null; error?: string; reason?: string } = { registered: false, txHash: null };
-  if (!env.MESH_DEV_SKIP_WORLD) {
-    chain.reason = "world_id_required"; // real on-chain registration arrives with the World ID step
+  if (!env.MESH_DEV_SKIP_WORLD && !nullifier) {
+    chain.reason = "world_id_required"; // World ID is not configured on this server, so no verified human to register
   } else if (!chainWritesConfigured()) {
     chain.error = "chain_not_configured";
   } else {
     try {
-      const r = await registerProviderOnChain(result.address, devNullifier(result.address));
+      // a verified human registers under their real nullifier; the dev skip uses a placeholder
+      const r = await registerProviderOnChain(result.address, nullifier ? nullifierToBytes32(nullifier) : devNullifier(result.address));
       chain.registered = true;
       chain.txHash = r.txHash;
       // remember it is registered even when it already was (no new transaction): "already-registered" is a marker

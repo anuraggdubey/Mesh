@@ -159,6 +159,10 @@ export function touchProvider(address: string, patch: { load?: number | null; cu
   getDb().prepare(`UPDATE providers SET ${sets.join(", ")} WHERE address = ?`).run(...args, address.toLowerCase());
 }
 
+export function setProviderNullifier(address: string, nullifier: string): void {
+  getDb().prepare("UPDATE providers SET world_nullifier = ? WHERE address = ?").run(nullifier, address.toLowerCase());
+}
+
 export function setProviderChainTx(address: string, txHash: string): void {
   getDb().prepare("UPDATE providers SET chain_tx = ? WHERE address = ?").run(txHash, address.toLowerCase());
 }

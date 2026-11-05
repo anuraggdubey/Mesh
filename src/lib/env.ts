@@ -44,6 +44,24 @@ const schema = z.object({
   RENDER_IMAGE_REF: z.preprocess(blank, z.string().default("mesh/render:dev")),
   RENDER_IMAGE_DIGEST: z.preprocess(blank, z.string().regex(/^sha256:[0-9a-f]{64}$/).default(`sha256:${"0".repeat(64)}`)),
 
+  // ── World ID (IDKit): provider uniqueness. Portal: developer.world.org ──
+  NEXT_PUBLIC_WORLD_APP_ID: z.preprocess(blank, z.string().optional()),
+  WORLD_RP_ID: z.preprocess(blank, z.string().optional()),
+  WORLD_SIGNING_KEY: z.preprocess(blank, z.string().regex(/^(0x)?[0-9a-fA-F]{64}$/, "must be a 32-byte hex key").optional()), // SECRET
+  // Pinned on the server so a client cannot pick "staging"/"sandbox" (which accept test proofs). Use "staging" with the simulator.
+  WORLD_ENVIRONMENT: z.preprocess(blank, z.enum(["production", "staging"]).default("production")),
+  WORLD_VERIFY_BASE_URL: z.preprocess(blank, z.string().url().default("https://developer.world.org")),
+
+  // ── World IdP "Agent Pass" (human checkpoint / device grant). Portal: auth.world.org/portal ──
+  WORLD_IDP_ISSUER: z.preprocess(blank, z.string().url().default("https://auth.world.org")),
+  WORLD_IDP_CLIENT_ID: z.preprocess(blank, z.string().optional()),
+  WORLD_IDP_CLIENT_SECRET: z.preprocess(blank, z.string().optional()), // SECRET
+  WORLD_IDP_ALLOWED_ACR: z.preprocess(blank, z.string().default("https://world.org/oidc/acr/orb")), // comma separated
+  // A job priced above this (smallest token unit) needs a fresh human approval. Empty = no approval required.
+  AGENT_APPROVAL_THRESHOLD: z.preprocess(blank, z.string().regex(/^[0-9]+$/).optional()),
+  // The approval's World authentication must be at most this old (seconds)
+  AGENT_APPROVAL_MAX_AGE_SECONDS: z.preprocess(blank, z.coerce.number().int().positive().default(300)),
+
   // Dev only: register providers on chain WITHOUT a World ID proof (a derived placeholder nullifier is used).
   // NEVER enable in the demo or production: it defeats the one-human-one-provider rule.
   MESH_DEV_SKIP_WORLD: z.preprocess(blank, z.enum(["true", "false"]).default("false")).transform((v) => v === "true"),

@@ -12,6 +12,8 @@ import { getEnv } from "./env";
  *   providers    registered provider machines (bearer-token auth, heartbeat, load)
  *   tasks        tile assignments handed to providers
  *   claims       provider-signed TileClaims (EIP-712), kept as audit evidence
+ *   world_nullifiers  World ID nullifiers already used per action (one human, one provider profile)
+ *   approvals    human approvals (World Agent Pass) bound to one exact action, single use
  *   used_nonces  x402 payment nonces and provider-register nonces already used (replay protection)
  */
 const SCHEMA = `
@@ -77,6 +79,33 @@ CREATE TABLE IF NOT EXISTS claims (
   signature     TEXT NOT NULL,
   created_at    INTEGER NOT NULL,
   PRIMARY KEY (job_id, provider)
+);
+
+CREATE TABLE IF NOT EXISTS world_nullifiers (
+  nullifier   TEXT NOT NULL,
+  action      TEXT NOT NULL,
+  address     TEXT NOT NULL,         -- lowercase provider address bound to this human
+  verified_at INTEGER NOT NULL,
+  PRIMARY KEY (nullifier, action)
+);
+
+CREATE TABLE IF NOT EXISTS approvals (
+  approval_id  TEXT PRIMARY KEY,
+  purpose      TEXT NOT NULL,        -- e.g. create-job
+  binding      TEXT NOT NULL,        -- sha256 of the exact action this approval authorizes
+  params       TEXT NOT NULL,        -- JSON of the bound action (requester, preset, price)
+  status       TEXT NOT NULL,        -- pending | approved | denied | expired | used
+  device_code  TEXT NOT NULL,
+  user_code    TEXT NOT NULL,
+  verification_uri TEXT NOT NULL,
+  interval_s   INTEGER NOT NULL,
+  next_poll_at INTEGER NOT NULL,
+  expires_at   INTEGER NOT NULL,
+  subject      TEXT,                 -- (iss, sub) of the approving human once approved
+  reason       TEXT,
+  created_at   INTEGER NOT NULL,
+  decided_at   INTEGER,
+  used_at      INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS used_nonces (

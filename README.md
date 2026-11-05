@@ -17,10 +17,6 @@ Built from scratch at **ETHGlobal Mumbai 2026** by Misbah Ansari and Anurag.
 
 Design details: [MESH-IMPLEMENTATION-PLAN.md](MESH-IMPLEMENTATION-PLAN.md). Exact formats and interfaces: [docs/job-spec.md](docs/job-spec.md).
 
-## Prize tracks
-
-Hedera (x402), 0G (Private Computer), World (IDKit or Agent Pass).
-
 ## Status
 
 | Area | State |
@@ -31,7 +27,8 @@ Hedera (x402), 0G (Private Computer), World (IDKit or Agent Pass).
 | Chain loop: escrow lock, on-chain claim, challenge window, finalize and payout; receipt endpoint | Done: verified with real Docker workers on a local chain (created -> final in about 39 s, providers paid on chain) and the API wallet's transactions on Hedera testnet. x402 payment check, verifier gating and fraud path still to do |
 | Requester UI: job form, providers panel, recent jobs, live job page (timeline, tile grid, image assembling from tiles, verification panel, activity log) | Done (verified in a browser with two providers). Wallet connect, x402 payment UI, World ID widget and the receipt explorer still to do |
 | Provider worker (real, Docker), job images, on-chain provider registration | Done: verified end to end on Windows with two real Docker workers; tiny hashes match the macOS golden file. Verifier worker and 0G job still to do |
-| World ID, HCS audit log, scripted agent | Not started |
+| World ID (IDKit provider gate, Agent Pass approvals above a spending threshold) | Backend done and tested with fixtures (denied paths included); needs portal clients, then a live check and the widget page |
+| HCS audit log, scripted agent, x402 payment | Not started (x402 waits on an escrow decision) |
 | 0G inference job | Not started |
 
 ## Deployed contracts (Hedera testnet, chain ID 296)
@@ -98,6 +95,10 @@ contracts/       Foundry project: src/, test/, script/
 jobs/            Docker job images (echo, render, matmul, infer)
 docs/            job-spec, DEPLOY, and later QA, DEMO, 0G status, sponsor feedback
 ```
+
+## Prize tracks
+
+Hedera (x402), World (Agent Pass + IDKit, one pick), and 0G (decision pending). Requirements, technical facts, decisions and owners: [docs/TRACKS.md](docs/TRACKS.md). World integration debrief: [docs/FEEDBACK-world.md](docs/FEEDBACK-world.md).
 
 ## Team and task lists
 

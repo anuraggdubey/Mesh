@@ -207,3 +207,27 @@ Because Anurag's laptop is light, you need a second provider that is not him:
 3. Verifier catches tampering with the expected probability and emits a valid fraud payload.
 4. `infer` returns request ID + TEE signature accepted by the contract (or `OG-STATUS.md` explains why not).
 5. Whole demo runs repeatably, under 60 s per scene, on your machine.
+
+
+---
+
+## Track work (added 2026-11-06, see docs/TRACKS.md)
+
+### Your part
+
+- [ ] **Step 12, verifier worker** (`workers/verifier`): seeded spot-check re-render, `finalize`/`postFraud`, fraud payload, report the verdict to the API. This is the demo's centerpiece (the cheat is caught). Job approval for finalize comes from your verdict (`verdict: "ok"`); until then the API uses the dev-only `MESH_DEV_AUTO_APPROVE`.
+- [ ] **Publish the render image to a registry both laptops can pull** (for example GitHub's container registry, public), then set `RENDER_IMAGE_REF` and `RENDER_IMAGE_DIGEST` in `.env`. The workers pull by digest.
+- [ ] **Provider onboarding with World ID:** once Anurag's `/provider/verify` page exists, put the proof JSON in `PROVIDER_WORLD_PROOF` and start the worker. The API enforces it when World is configured.
+- [ ] **Stake helper:** keep `scripts/stake-provider.ts`; document the exact commands in `docs/LOCAL-REHEARSAL.md`.
+- [ ] **Cross-OS check** of the real worker on the other OS (macOS arm64 is the only place Docker was verified by you; Windows is verified by Anurag).
+- [ ] `docs/QA.md`: record the detection-rate runs.
+
+### If we keep 0G (decision pending, TRACKS 4.5)
+
+- [ ] Spike: one Router call with `verify_tee`; capture request ID, provider, the signed `text` and signature; write `docs/OG-STATUS.md`.
+- [ ] `infer` job in the provider worker returning output, request ID and signature.
+
+### Facts you need
+
+- Hedera x402 pays an **account** (`0.0.x`) in HBAR or USDC; our contracts are EVM. Anurag owns that bridge; you do not need to change the worker for it.
+- The World proof is checked by the API, never by the worker.

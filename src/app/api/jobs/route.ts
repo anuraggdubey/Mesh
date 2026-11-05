@@ -2,8 +2,9 @@ import { connection } from "next/server";
 import { json, jsonError, readJson } from "@/lib/api";
 import { MAX_INPUT_BYTES } from "@/lib/constants";
 import { getEnv } from "@/lib/env";
-import { buildJob, getJob, insertJob, listJobs, transitionJob, UnsupportedJobTypeError } from "@/lib/jobs";
+import { appendEvent, buildJob, getJob, insertJob, listJobs, transitionJob, UnsupportedJobTypeError } from "@/lib/jobs";
 import { assignPending } from "@/lib/assign";
+import { ApprovalError, approvalRequired, consumeApproval, priceFor } from "@/lib/approvals";
 import { createJobBodySchema } from "@/lib/types";
 
 /** GET /api/jobs: most recent jobs (newest first). */
@@ -42,9 +43,26 @@ export async function POST(req: Request) {
     return jsonError(503, "not_configured", "ESCROW_ADDRESS is not set on the server");
   }
 
+  // Spending control: a job above the threshold needs a fresh human approval (World Agent Pass) for THIS exact job.
+  // If it is missing, pending, denied, expired, used or for something else, the job is not created at all.
+  let approvalId: string | null = null;
+  if (parsed.data.type === "render" && approvalRequired(priceFor(parsed.data.preset))) {
+    approvalId = req.headers.get("x-mesh-approval");
+    if (!approvalId) {
+      return jsonError(403, "approval_required", "this job needs a human approval: POST /api/approvals, have the human approve, then send X-Mesh-Approval", { reason: "above_threshold" });
+    }
+    try {
+      consumeApproval(approvalId, { purpose: "create-job", requester: parsed.data.requester, type: "render", preset: parsed.data.preset, price: priceFor(parsed.data.preset) });
+    } catch (e) {
+      if (e instanceof ApprovalError) return jsonError(403, "approval_denied", e.message, { reason: e.code });
+      throw e;
+    }
+  }
+
   let job;
   try {
     job = insertJob(buildJob(parsed.data));
+    if (approvalId) appendEvent(job.jobId, "approval", { approvalId });
   } catch (err) {
     if (err instanceof UnsupportedJobTypeError) return jsonError(501, "unsupported_job_type", err.message);
     throw err;

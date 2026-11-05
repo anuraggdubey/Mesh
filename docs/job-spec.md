@@ -558,16 +558,17 @@ Stream sends all past events on connect (replay) then live ones. Heartbeat comme
 
 ## 11. World ID
 
-- **Actions:** `register-provider`, `create-job`.
-- Client (IDKit) obtains a proof; the browser sends it to `POST /api/world/verify` **and/or** inline in `POST /api/jobs` / `/providers/register`.
-- Server verifies with World's verify endpoint using `WORLD_ID_VERIFY_SECRET`; **never trust a client-only check**.
-- Store `nullifierHash` per action. One provider profile per human (nullifier uniqueness on `register-provider`); repeat → `409 already_registered`.
-- Denied path (required by the track): expired / cancelled / invalid proof → protected action **does not occur** and the API returns `401 world_denied` with `reason`.
-- Sandbox proofs use fake identities; the README says so.
+Two products, one World pick (docs/TRACKS.md section 3):
 
-`POST /api/world/verify` body: `{"action":"create-job","proof":{…}}` → `{"ok":true,"nullifier":"0x…"}` or `401`.
+**IDKit (Proof of Human): provider registration.**
+- `POST /api/world/rp-context {action:"register-provider"}` returns `{app_id, rp_id, environment, action, rp_context}` for the browser widget. The RP signature is made on the server (`@worldcoin/idkit-core/signing`); the signing key never leaves it.
+- `POST /api/providers/register` carries `worldProof` (the IDKit result). When `NEXT_PUBLIC_WORLD_APP_ID`, `WORLD_RP_ID` and `WORLD_SIGNING_KEY` are set, the server verifies it with `POST {WORLD_VERIFY_BASE_URL}/api/v4/verify/{rp_id}`, **pins the environment** (`WORLD_ENVIRONMENT`; a mismatch is rejected), requires the proof's `action` to match, and stores the nullifier. One nullifier binds to one wallet per action: another wallet gets `401 world_denied` with reason `nullifier_reused`; the same wallet may re-register. The nullifier is consumed only after the wallet signature checks out.
+- **Denied path:** missing, invalid or reused proof gives `401 world_denied {reason}`; a World outage gives `503`; in every case **no provider row, no token, nothing on chain**. Reasons: `missing_proof`, `wrong_action`, `wrong_environment`, `invalid_proof`, `no_nullifier`, `nullifier_reused`, `verify_unavailable`.
+- The nullifier is registered on `MeshStake` as the provider's bytes32 identity.
+- `MESH_DEV_SKIP_WORLD=true` (DEV ONLY) skips all of this and uses a placeholder nullifier.
+- Known limit: the proof is not cryptographically bound to the wallet; the wallet signature plus one-time nullifier binding is the mitigation.
 
----
+**Agent Pass (World IdP device grant): human approval above a spending threshold.** See section 17.
 
 ## 12. HCS audit log
 
@@ -646,3 +647,21 @@ Rule: a spec change that alters any golden file requires both people to re-run t
 | Contracts (§8) and deploy | Anurag |
 | API routes, matcher, x402, World verify, HCS publisher | Anurag |
 | Frontend, scripted agent | Anurag |
+
+---
+
+## 17. Human approvals (World Agent Pass)
+
+Spending control for the autonomous agent: a job priced above `AGENT_APPROVAL_THRESHOLD` (smallest token unit) needs a fresh human approval. Jobs at or below the threshold need none; an unset threshold means no approvals.
+
+1. `POST /api/approvals` with the same body as `POST /api/jobs` (`type`, `preset`, `requester`) returns `201 {approvalId, status:"pending", userCode, verificationUri, expiresAt, interval, params}`. The human opens `verificationUri` / enters `userCode` in the World app. The device code stays on the server.
+2. `GET /api/approvals/:id` returns the status (`pending | approved | denied | expired | used`) and polls World no more often than `interval` (adding 5 s on `slow_down`).
+3. The agent retries `POST /api/jobs` with header `X-Mesh-Approval: <approvalId>`.
+
+**Rules (all tested):**
+- Only a **validated ID token** approves: RS256 against the issuer's JWKS, exact `iss`, `aud` = our client id, `exp`, `acr` in `WORLD_IDP_ALLOWED_ACR` (default Orb), `amr` includes `pop`, and `auth_time` within `AGENT_APPROVAL_MAX_AGE_SECONDS` (default 300). A token that fails validation **denies** the approval.
+- World outage, 429, network error: the approval stays **pending**; it is never approval. `access_denied` gives `denied`; `expired_token` / `invalid_grant` give `expired`.
+- The approval is **bound by hash to the exact action** (requester, type, preset, price) and is **single use**. Another preset, price or requester gives `binding_mismatch`; reuse gives `already_used`.
+- **Denied path:** no header gives `403 approval_required`; a pending, denied, expired, spent, mismatched or unknown approval gives `403 approval_denied {reason}`. In every case **no job is created and nothing is paid**.
+- A spent approval is recorded as an `approval` event on the job.
+- Needs a confidential OIDC client from `auth.world.org/portal`: `WORLD_IDP_CLIENT_ID`, `WORLD_IDP_CLIENT_SECRET` (SECRET), `WORLD_IDP_ISSUER` (default `https://auth.world.org`).

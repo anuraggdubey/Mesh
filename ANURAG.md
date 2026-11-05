@@ -224,3 +224,34 @@ Next.js (App Router) + TypeScript + Tailwind. Demo-ready, clean, big fonts.
 4. World ID happy and denied paths verified server-side.
 5. UI shows the live tile stream, receipt, fraud proof, and HCS trail.
 6. Repo, README, `AI.md`, video and submission are complete.
+
+
+---
+
+## Track work (added 2026-11-06, see docs/TRACKS.md)
+
+Everything about what each sponsor requires, the technical facts and the open decisions is in **docs/TRACKS.md**. Read sections 2 (Hedera), 3 (World) and 6 (things only you can do).
+
+### Already built (AI-assisted, tested; review before relying on it)
+
+- [x] IDKit server: `POST /api/world/rp-context`, proof verification with the environment pinned, nullifier store (one human, one wallet), registration gated on a proof, denied path (spec section 11).
+- [x] Agent Pass backend: device grant, ID token validation, approvals bound to one exact action and single use, spending-threshold gate on `POST /api/jobs` (spec section 17).
+- [x] Provider client and worker accept `worldProof` (`PROVIDER_WORLD_PROOF`).
+
+### Only you can do (accounts, keys, funds, decisions)
+
+- [ ] Create the **developer.world.org** app: set `NEXT_PUBLIC_WORLD_APP_ID`, `WORLD_RP_ID`, `WORLD_SIGNING_KEY` in `.env`. Action name: `register-provider`.
+- [ ] Create the **auth.world.org** confidential OIDC client (accept **Orb only**): set `WORLD_IDP_CLIENT_ID`, `WORLD_IDP_CLIENT_SECRET`. Then set `AGENT_APPROVAL_THRESHOLD` (for example `200000`).
+- [ ] Decide **x402 option A or B** (TRACKS 2.4) and **0G option 1 or 2** (TRACKS 4.5).
+- [ ] Fund a treasury account and a payer-agent account with testnet HBAR and USDC (faucet.circle.com), associate both with USDC; top up the deployer wallet if we redeploy.
+- [ ] Get an HTTPS URL for the API (tunnel or small server) for the demo link.
+
+### Still to build (in order)
+
+1. [ ] Step 12 with Misbah: verifier endpoints, `postFraud`, fraud view, slash and refund.
+2. [ ] x402 on `POST /api/jobs` with `@x402/hedera` (after the decision), replay protection, settled tx ID in the README.
+3. [ ] Scripted agent (`scripts/agent.ts`): x402 payment, budget, per-job cap, image allowlist, **approval flow above the threshold** (ask, show the code, wait, proceed or stop).
+4. [ ] HCS audit topic and publisher (uses the API wallet; no new secrets).
+5. [ ] IDKit widget page (`/provider/verify`): shows the proof for the worker; shows the denied path.
+6. [ ] `docs/FEEDBACK-world.md` and `docs/FEEDBACK-hedera.md` with real timings.
+7. [ ] Demo scenes: agent pays by x402 (HashScan), approval succeeds, denied approval creates no job, cheat caught.

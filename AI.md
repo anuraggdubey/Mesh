@@ -13,5 +13,6 @@ ETHGlobal requires documenting where AI tools helped. Keep this file current: ad
 | 2026-11-06 | src/components, src/app (page, layout, jobs/[id]), src/lib/ui, src/lib/render-reference.ts and tests | Claude Code | Wrote the requester UI, live tile grid, state reducer, TS reference renderer and 22 tests | Team to review |
 | 2026-11-06 | src/lib/chain.ts, local-chain.ts, chain.test.ts, providers register route, scripts/local-chain.ts, scripts/with-env.ts, docs/LOCAL-REHEARSAL.md | Claude Code | Wrote on-chain provider registration, a local anvil rehearsal stack, and ran the real Docker workers end to end | Team to review |
 | 2026-11-06 | src/lib/settler.ts, assign.ts, chain.ts (escrow/claim/finalize), instrumentation.ts, receipts route, UI payout display, settler tests, scripts/testnet-smoke.ts | Claude Code | Wrote the chain loop (lock, post claim, finalize, refund), eligibility-aware assignment and tests; ran it end to end | Team to review |
+| 2026-11-06 | docs/TRACKS.md, plan/spec/role updates, src/lib/world.ts, agentpass.ts, approvals.ts, routes (world, approvals), tests | Claude Code | Researched sponsor docs, wrote the tracks reference, built the IDKit gate and Agent Pass approval backend with 51 tests | Team to review |
 
 Spec files used in AI-assisted workflows live in this repo (the plan and the two task files).

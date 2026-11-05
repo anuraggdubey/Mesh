@@ -21,6 +21,17 @@ const KEYS = [
   "MESH_CHAIN_LOOP",
   "MESH_DEV_AUTO_APPROVE",
   "PAYMENT_TOKEN_ADDRESS",
+  "WORLD_RP_ID",
+  "WORLD_SIGNING_KEY",
+  "NEXT_PUBLIC_WORLD_APP_ID",
+  "WORLD_ENVIRONMENT",
+  "WORLD_VERIFY_BASE_URL",
+  "WORLD_IDP_ISSUER",
+  "WORLD_IDP_CLIENT_ID",
+  "WORLD_IDP_CLIENT_SECRET",
+  "WORLD_IDP_ALLOWED_ACR",
+  "AGENT_APPROVAL_THRESHOLD",
+  "AGENT_APPROVAL_MAX_AGE_SECONDS",
 ] as const;
 
 export const TEST_ESCROW = "0x16eFE46De1CdA06Be455607A63514319aE130010";
@@ -44,6 +55,7 @@ export function setupTestEnv(overrides: Partial<Record<(typeof KEYS)[number], st
   process.env.HEDERA_CHAIN_ID = "296";
   process.env.MESH_DEV_SKIP_WORLD = "false";
   process.env.MESH_CHAIN_LOOP = "false";
+  for (const k of ["WORLD_RP_ID", "WORLD_SIGNING_KEY", "NEXT_PUBLIC_WORLD_APP_ID", "WORLD_ENVIRONMENT", "WORLD_VERIFY_BASE_URL", "WORLD_IDP_ISSUER", "WORLD_IDP_CLIENT_ID", "WORLD_IDP_CLIENT_SECRET", "WORLD_IDP_ALLOWED_ACR", "AGENT_APPROVAL_THRESHOLD", "AGENT_APPROVAL_MAX_AGE_SECONDS"]) process.env[k] = "";
   process.env.MESH_DEV_AUTO_APPROVE = "false";
   process.env.STAKE_ADDRESS = ""; // chain access is off unless a test turns it on
   process.env.API_PRIVATE_KEY = "";

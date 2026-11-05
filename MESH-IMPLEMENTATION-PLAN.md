@@ -150,25 +150,20 @@ A small model call routed through **0G Private Computer** (OpenAI-compatible API
 
 ## 5. Partner tracks we enter (max 3 partners, confirmed)
 
-Rules (verified on the Mumbai submission guidelines): select **up to 3** partner prizes; multiple tracks of one partner count as one pick. Partner-only judging uses the materials we submit; booth visits are optional. Confirm live prize text before submitting.
+**The full requirements, technical facts, decisions and owners now live in [docs/TRACKS.md](docs/TRACKS.md). Read it. This section is only the summary.**
 
-1. **Hedera — "AI Agents That Pay: x402 on Hedera"** ($6,500: $3,000 / $2,000 / $1,500)
-   Requirements from the prize page: at least one x402-protected endpoint settling on Hedera (testnet or mainnet) via a listed facilitator (Official x402, Ax402, Blocky402) or our own; **an agent/client completes one paid request end to end with no human approving**; public README covering setup, architecture, payment flow and a **settled Hedera transaction ID**; demo video ≤ 5 min linking to HashScan.
-   Extra points we plan to take: spending controls (budget, per-job cap, allowlist); **HCS topic as tamper-evident audit log**; ERC-8004 / HCS-14 identity if time; Hedera Agent Kit if time.
-   Consequence: the **scripted agent requester is core**, not stretch.
+Rules: up to 3 partner prizes; all tracks of one partner count as ONE pick; Continuity-only prizes are not for us.
 
-2. **0G — "Build with 0G Private Computer"** ($5,000: $2,500 / $1,500 / $1,000)
-   Requirements: inference on 0G Private Computer **in the main flow with request IDs**, working app, one sentence on **what breaks without 0G**, demo video under 3 min + live link, contract addresses. 0G does not want generic chat wrappers or an AI call that can be removed unnoticed. Our answer: the `infer` job's verification is the 0G signature; remove 0G and the receipt cannot be validated.
-   If 0G tooling blocks us: ship `render` + Hedera + World first, keep `infer` as the next job, never fake an attestation, and write `docs/OG-STATUS.md`.
+| Partner | Tracks | Fit | Status |
+| --- | --- | --- | --- |
+| **Hedera** | AI Agents That Pay: x402 on Hedera ($6,500) | Strong | Core. Needs the escrow decision (TRACKS 2.4) |
+| **World** | World ID Agent Pass ($5,000) **and** Best Use of IDKit ($2,500): one pick | Strong | Backend built; needs portal clients |
+| **0G** | Build with 0G Private Computer ($5,000) | **Weak** (needs a consumer AI app) | Decision pending: drop or stretch (TRACKS 4.5) |
 
-3. **World** — one of:
-   - **Best Use of IDKit** (2 teams × $1,250): use the **minimum sufficient credential** (likely Proof of Human); IDKit in a working flow; server or on-chain verification; explain the trust event; one success path and one alternative path; short debrief.
-   - **World ID Agent Pass** ($5,000: $2,500 / $1,500 / $1,000): official Agent Pass integration; full request → completion → validated result → protected action; a **denied/expired/cancelled** path where the action does not happen; validation in a secure backend; integration debrief.
-   Plan: use IDKit to gate providers (one human, one provider profile) and Agent Pass to authorize the scripted agent requester. Decide the final single pick after reading the live pages Friday morning. Proofs in the sandbox use fake identities; do not claim production Sybil resistance.
+How World fits: **IDKit (Proof of Human)** gates provider registration (one human, one provider profile; denied path = no profile). **Agent Pass (device grant)** is the human approval layer for the autonomous agent: a job above the spending threshold needs a fresh Orb-level approval bound to that exact job (denied/expired path = no job, nothing paid).
+How Hedera fits: x402 on `POST /api/jobs`, a scripted agent that pays with no human click, spending controls (budget, cap, allowlist, human approval above a threshold), and an HCS audit log.
 
-**Optional only if the core is done** (does not take a pick unless the work is real): Arkiv "build from scratch" ($4,000; job board/claims that expire, plus `schema.md` and `friction.md`). **ENS is cut**: ENSv2 must be central to the product; a name in an activity feed will not place.
-
-**Judging categories we write toward** (all submissions): Technicality, Originality, Practicality, Usability, WOW. Finalist session: 7 minutes (4 demo, 3 judge Q&A).
+ENS is cut. Arkiv is an optional third pick if 0G is dropped.
 
 ---
 
@@ -267,6 +262,8 @@ Every state change (paid, assigned, claim, sample seed, verdict, slash, release)
 
 ### 8.3 x402 flow
 
+> **Updated 2026-11-06:** Hedera x402 v2 uses the `PAYMENT-REQUIRED` / `PAYMENT-SIGNATURE` / `PAYMENT-RESPONSE` headers, network `hedera:testnet`, and `payTo` is a Hedera **account ID**, not an EVM contract. How a settled x402 payment reaches our EVM escrow is an open decision (docs/TRACKS.md 2.4). The text below is the original plan.
+
 1. `POST /jobs` without payment → `402` with payment instructions (amount, asset, `payTo = escrow`, nonce = `jobId`).
 2. Client retries with the x402 payment header.
 3. Facilitator verifies the Hedera payment, **checks replay** (same nonce cannot pay twice), marks the job `paid`, locks escrow.
@@ -278,12 +275,16 @@ Every state change (paid, assigned, claim, sample seed, verdict, slash, release)
 
 ### 8.4 World ID
 
+> **Updated 2026-11-06:** implemented as IDKit Proof of Human for provider registration plus Agent Pass (device grant) approvals above a spending threshold. See docs/TRACKS.md section 3 and docs/job-spec.md sections 11 and 17.
+
 - Verify **on our server**, not only in the browser.
 - Protected actions: `register-provider`, `create-job` (and agent authorization if Agent Pass).
 - Required **denied path**: expired / cancelled / invalid proof → action does not happen. Show both paths.
 - Short debrief written for the sponsor.
 
 ### 8.5 0G Private Computer (`infer` job)
+
+> **Updated 2026-11-06:** the 0G signature is EIP-191 over a variable-length `text`, not a 32-byte digest, so `postAttested` must change. The track also needs a consumer AI app, which we are not. See docs/TRACKS.md section 4 (decision pending).
 
 - Workload: a small model call through 0G's OpenAI-compatible endpoint.
 - Capture: request ID, TEE-signed response, signer address.

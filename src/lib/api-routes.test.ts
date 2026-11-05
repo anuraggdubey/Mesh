@@ -7,7 +7,7 @@ import { GET as healthGet } from "@/app/api/health/route";
 import { GET as listGet, POST as createPost } from "@/app/api/jobs/route";
 import { GET as jobGet } from "@/app/api/jobs/[id]/route";
 import { getJob } from "./jobs";
-import { TEST_ESCROW, TEST_REQUESTER, TEST_TOKEN, useTempEnv } from "./testing";
+import { TEST_ESCROW, TEST_REQUESTER, TEST_TOKEN, setupTestEnv } from "./testing";
 
 const post = (body: unknown, headers: Record<string, string> = {}) =>
   createPost(
@@ -23,7 +23,7 @@ const getById = (id: string) =>
 describe("API routes", () => {
   let cleanup: () => void;
   beforeEach(() => {
-    cleanup = useTempEnv();
+    cleanup = setupTestEnv();
   });
   afterEach(() => cleanup());
 
@@ -75,7 +75,7 @@ describe("API routes", () => {
 
     it("answers 503 if the escrow address is not configured", async () => {
       cleanup();
-      cleanup = useTempEnv({ ESCROW_ADDRESS: "" });
+      cleanup = setupTestEnv({ ESCROW_ADDRESS: "" });
       const res = await post({ requester: TEST_REQUESTER });
       expect(res.status).toBe(503);
       expect((await res.json()).error).toBe("not_configured");
@@ -127,7 +127,7 @@ describe("API routes", () => {
   describe("dev payment skip", () => {
     beforeEach(() => {
       cleanup();
-      cleanup = useTempEnv({ MESH_DEV_SKIP_PAYMENT: "true" });
+      cleanup = setupTestEnv({ MESH_DEV_SKIP_PAYMENT: "true" });
     });
 
     it("marks the job paid immediately and flags the response", async () => {

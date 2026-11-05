@@ -22,7 +22,7 @@ export const TEST_RECEIPT = "0x0118652ea87a8616Cb51979F5F121FC598bf3e7E";
 export const TEST_REQUESTER = "0x6834228cb6F180C05fA2154a2B2670d92c4FDf59";
 
 /** Point the app at a fresh temp database and a known environment. Returns a cleanup function. */
-export function useTempEnv(overrides: Partial<Record<(typeof KEYS)[number], string>> = {}): () => void {
+export function setupTestEnv(overrides: Partial<Record<(typeof KEYS)[number], string>> = {}): () => void {
   const saved: Record<string, string | undefined> = {};
   for (const k of KEYS) saved[k] = process.env[k];
 

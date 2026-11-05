@@ -16,7 +16,7 @@ import {
 } from "./jobs";
 import { getDb } from "./db";
 import { renderInputHash } from "./render-input";
-import { TEST_REQUESTER, useTempEnv } from "./testing";
+import { TEST_REQUESTER, setupTestEnv } from "./testing";
 
 describe("state machine", () => {
   it("allows the documented happy path", () => {
@@ -54,7 +54,7 @@ describe("state machine", () => {
 describe("env", () => {
   let cleanup: () => void;
   beforeEach(() => {
-    cleanup = useTempEnv();
+    cleanup = setupTestEnv();
   });
   afterEach(() => cleanup());
 
@@ -82,7 +82,7 @@ describe("env", () => {
 describe("jobs store", () => {
   let cleanup: () => void;
   beforeEach(() => {
-    cleanup = useTempEnv();
+    cleanup = setupTestEnv();
   });
   afterEach(() => cleanup());
 

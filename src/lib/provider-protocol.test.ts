@@ -22,7 +22,7 @@ import { computeTilesDigest, registerMessage, tileClaimTypedData, imageDigestToB
 import { merkleLeaf, merkleRoot } from "./hash";
 import { getDb } from "./db";
 import { getJob, listEvents, transitionJob } from "./jobs";
-import { TEST_RECEIPT, TEST_REQUESTER, useTempEnv } from "./testing";
+import { TEST_RECEIPT, TEST_REQUESTER, setupTestEnv } from "./testing";
 
 // Test-only wallets (well-known anvil keys; never hold value).
 const KEY_A = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80" as Hex;
@@ -96,7 +96,7 @@ async function expectStatus(p: Promise<unknown>, status: number, code?: string) 
 describe("provider protocol", () => {
   let cleanup: () => void;
   beforeEach(() => {
-    cleanup = useTempEnv({ MESH_DEV_SKIP_PAYMENT: "true" });
+    cleanup = setupTestEnv({ MESH_DEV_SKIP_PAYMENT: "true" });
     vi.stubGlobal("fetch", routeFetch);
   });
   afterEach(() => {

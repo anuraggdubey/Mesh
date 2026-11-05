@@ -29,7 +29,7 @@ Hedera (x402), 0G (Private Computer), World (IDKit or Agent Pass).
 | Smart contracts (stake, escrow, receipt) | Done: 67 Foundry tests passing, deployed to Hedera testnet |
 | API: env validation, SQLite store, job state machine, jobs endpoints, provider registry (signed register + bearer token), matcher, task delivery, tile upload, signed claims with Merkle root, live SSE events | Done (92 tests, live run with two mock providers). On-chain `postClaim`, x402 payment check and World ID still to do |
 | x402 payment + escrow link | Not started |
-| Requester UI, live tile grid, receipt explorer | Not started |
+| Requester UI: job form, providers panel, recent jobs, live job page (timeline, tile grid, image assembling from tiles, verification panel, activity log) | Done (verified in a browser with two providers). Wallet connect, x402 payment UI, World ID widget and the receipt explorer still to do |
 | Provider worker, verifier worker, job images | In progress (Misbah): deterministic render and echo job images (Go/Docker) and SHA-256/Merkle helpers are merged to `main`; the provider and verifier workers are still stubs |
 | World ID, HCS audit log, scripted agent | Not started |
 | 0G inference job | Not started |
@@ -65,6 +65,7 @@ npm run lint
 npm test                     # vitest (no tests yet)
 npm run build
 npm run worker:mock          # mock provider: fake tiles, speaks the real protocol (dev only)
+MOCK_REAL_RENDER=true npm run worker:mock   # same, but real Mandelbrot tiles (tiny preset only)
 npm run worker:provider      # real provider worker (stub for now)
 npm run worker:verifier      # verifier worker (stub for now)
 npm run agent                # scripted agent requester (stub for now)

@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { computeTilesDigest, imageDigestToBytes32, parseRegisterNonce, registerMessage, tileClaimTypedData } from "./claim";
 import { getDb, transaction } from "./db";
 import { buildJob, getJob, insertJob, transitionJob } from "./jobs";
-import { TEST_REQUESTER, useTempEnv } from "./testing";
+import { TEST_REQUESTER, setupTestEnv } from "./testing";
 
 const h = (s: string) => createHash("sha256").update(s).digest("hex");
 
@@ -71,7 +71,7 @@ describe("claim helpers", () => {
 describe("re-entrant transactions", () => {
   let cleanup: () => void;
   beforeEach(() => {
-    cleanup = useTempEnv();
+    cleanup = setupTestEnv();
   });
   afterEach(() => cleanup());
 

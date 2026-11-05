@@ -3,6 +3,7 @@
 //
 //   npm run worker:mock                 # ephemeral wallet
 //   MOCK_PROVIDER_PRIVATE_KEY=0x... npm run worker:mock
+//   MOCK_REAL_RENDER=true npm run worker:mock   # real Mandelbrot tiles via the slow TS reference (tiny preset only)
 //
 import "dotenv/config";
 import { createHash } from "node:crypto";
@@ -10,12 +11,15 @@ import os from "node:os";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import type { Hex } from "viem";
 import { ApiRequestError, ProviderClient } from "../../src/lib/provider-client";
+import { renderTile } from "../../src/lib/render-reference";
+import type { RenderInput } from "../../src/lib/render-reference";
 
 const API = process.env.MOCK_API_URL ?? process.env.API_PUBLIC_URL ?? "http://localhost:3000";
 const CHAIN_ID = Number(process.env.HEDERA_CHAIN_ID ?? 296);
 const RECEIPT = process.env.RECEIPT_ADDRESS as Hex | undefined;
 const WAIT_SECONDS = Number(process.env.MOCK_POLL_WAIT ?? 20);
 const DELAY_MS = Number(process.env.MOCK_TILE_DELAY_MS ?? 150); // fake "compute time" per tile
+const REAL_RENDER = process.env.MOCK_REAL_RENDER === "true";
 
 const log = (...a: unknown[]) => console.log(new Date().toISOString().slice(11, 19), "[mock-provider]", ...a);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -68,12 +72,13 @@ async function main() {
       currentTask = task.jobId;
       log(`job ${task.jobId.slice(0, 10)}…: ${task.tiles.length} tiles`);
       try {
-        const input = JSON.parse(await client.getInput(task.jobId)) as { width: number; height: number; gridCols: number; gridRows: number; tiles: number[] };
+        const input = JSON.parse(await client.getInput(task.jobId)) as RenderInput & { tiles: number[] };
+        if (REAL_RENDER && input.width * input.height > 64 * 64) throw new Error("MOCK_REAL_RENDER is only for the tiny preset (BigInt is too slow)");
         const size = (input.width / input.gridCols) * (input.height / input.gridRows) * 2;
         const done: { index: number; tileHash: string }[] = [];
         for (const index of input.tiles) {
           await sleep(DELAY_MS);
-          const bytes = fakeTile(task.jobId, index, size);
+          const bytes = REAL_RENDER ? renderTile(input, index) : fakeTile(task.jobId, index, size);
           const p = await client.putTile(task.jobId, index, bytes);
           done.push({ index, tileHash: createHash("sha256").update(bytes).digest("hex") });
           log(`  tile ${index} uploaded (${p.done}/${p.total})`);

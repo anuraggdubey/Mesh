@@ -354,37 +354,67 @@ function postAttested(
   string calldata zeroGRequestId, bytes calldata teeSignature
 ) external;                       // onlyApi; ecrecover(teeSignature over outputDigest) == OG_SIGNER → Attested; escrow.release
 function getReceipt(bytes32 jobId) external view returns (Receipt memory);
+function providersOf(bytes32 jobId) external view returns (address[] memory);
+function tileCountOf(bytes32 jobId) external view returns (uint16);
+// pure helpers so off-chain code can check the exact tree encoding (use for golden vectors)
+function computeLeaf(uint16 index, bytes32 tileHash, address tileOwner) external pure returns (bytes32);
+function verifyTile(bytes32 merkleRoot, uint16 index, bytes32 tileHash, address tileOwner, bytes32[] calldata proof)
+  external pure returns (bool);
+// owner-only
+function setConfig(address ogSigner, uint64 windowSeconds, uint256 minStake, uint256 slashAmount) external;
+function withdrawRetained(address payable to, uint256 amount) external;
 
 event ClaimPosted(bytes32 indexed jobId, address indexed requester, bytes32 merkleRoot, uint64 windowEnd);
 event ReceiptFinal(bytes32 indexed jobId);
 event FraudProven(bytes32 indexed jobId, uint16 tileIndex, address indexed owner);
 event AttestedPosted(bytes32 indexed jobId, bytes32 outputDigest, string zeroGRequestId);
+event SlashDistributed(bytes32 indexed jobId, uint256 toRequester, uint256 toVerifier, uint256 retained);
 ```
 
-Rules: append-only (a `jobId` can be posted once); `finalize` reverts before `windowEnd`; `postFraud` only while `Pending`; `jobId` replays rejected.
+Constructor: `(api, verifier, stake, escrow, ogSigner, windowSeconds, minStake, slashAmount)`.
+
+Rules (all covered by Foundry tests):
+- Append-only: a `jobId` can be posted once; replays revert (`AlreadyPosted`).
+- `postClaim` requires the escrow to be `Locked` for that `jobId`, `tileCount` a power of two (≤ 4096), 1–16 distinct non-zero providers, and every provider registered with `stake ≥ minStake`. It also locks each provider's stake until `windowEnd` so they cannot unstake while a claim is pending.
+- `finalize` is callable by anyone, reverts while `block.timestamp <= windowEnd`, and only from `Pending`.
+- `postFraud` only by the verifier, only while `Pending` and `block.timestamp <= windowEnd`, requires `expectedTileHash != claimedTileHash`, requires `tileOwner == providers[tileIndex % providers.length]`, and a proof of exactly `log2(tileCount)` siblings that reproduces `merkleRoot` for `leaf(tileIndex, claimedTileHash, tileOwner)`.
+- `postAttested` recovers an **EIP-191 personal-sign** signature over the 32-byte `outputDigest` and requires it to equal `ogSigner`. **[TBD-VERIFY]** whether 0G signs exactly this; the message construction is isolated in `_recoverEip191`.
+- Provider signatures are **not** verified on chain (see §7.2 v1 trust note).
 
 ### 8.2 `MeshStake`
 
 ```solidity
-function stake() external payable;
-function unstake(uint256 amount) external;       // after UNLOCK_DELAY
+constructor(address api, uint256 unlockDelay);
+function setReceipt(address receipt) external;                    // owner, once
+function registerProvider(address provider, bytes32 worldNullifier) external;   // onlyApi; one profile per human, one nullifier per wallet
+function isRegistered(address provider) external view returns (bool);
+function isEligible(address provider, uint256 minStake) external view returns (bool);  // registered && stake >= minStake
+function stake() external payable;                                // must be registered
+function requestUnstake() external;                               // starts the unlock delay
+function unstake(uint256 amount) external;                        // after unlockDelay AND after lockedUntil
 function stakeOf(address provider) external view returns (uint256);
-function slash(address provider, bytes32 jobId, uint256 amount, bytes32 reason) external;   // onlyReceipt
-function registerProvider(address provider, bytes32 worldNullifier) external;                // onlyApi; one provider per nullifier
+function extendLock(address provider, uint64 until) external;     // onlyReceipt: pending claim blocks unstaking
+function slash(address provider, bytes32 jobId, uint256 amount, bytes32 reason)
+  external returns (uint256 slashed);                              // onlyReceipt; capped at the provider's stake; one slash per jobId
 
+event Registered(address indexed provider, bytes32 indexed nullifier);
 event Staked(address indexed provider, uint256 amount);
-event Slashed(address indexed provider, bytes32 indexed jobId, uint256 amount, bytes32 reason);
+event UnstakeRequested(address indexed provider, uint64 availableAt);
 event Unstaked(address indexed provider, uint256 amount);
+event Slashed(address indexed provider, bytes32 indexed jobId, uint256 amount, bytes32 reason);
 ```
 
-Slash split: `50%` to the requester (compensation), `25%` to the verifier, `25%` stays in the contract. Constants documented in code.
+Stake is the native currency (HBAR). `slash` transfers the slashed funds to the **receipt contract**, which splits them in `postFraud`: **50% requester, 25% verifier, 25% retained** by the receipt contract (owner can withdraw the retained share). Payouts to the requester and verifier are best-effort so a reverting recipient cannot block the slash or refund.
 
 ### 8.3 `MeshEscrow`
 
 ```solidity
-function lock(bytes32 jobId, address requester, uint256 amount) external;      // onlyApi (called after x402 payment verified); payTo = this contract
-function release(bytes32 jobId, address[] calldata providers) external;          // onlyReceipt; equal split
-function refund(bytes32 jobId) external;                                         // onlyReceipt or after expiry
+constructor(IERC20 token, address api, uint256 refundAfter);
+function setReceipt(address receipt) external;                                   // owner, once
+function lock(bytes32 jobId, address requester, uint256 amount) external;      // onlyApi, AFTER the x402 payment arrived at this contract; reverts PaymentNotReceived if token balance < held + amount
+function release(bytes32 jobId, address[] calldata providers) external;          // onlyReceipt; equal split, remainder to providers[0]
+function refund(bytes32 jobId) external;                                         // receipt or api any time; anyone after refundAfter seconds
+function statusOf(bytes32 jobId) external view returns (EscrowStatus);           // None, Locked, Released, Refunded
 event Locked(bytes32 indexed jobId, address indexed requester, uint256 amount);
 event Released(bytes32 indexed jobId, uint256 amount);
 event Refunded(bytes32 indexed jobId, uint256 amount);
@@ -394,7 +424,9 @@ event Refunded(bytes32 indexed jobId, uint256 amount);
 
 ### 8.4 Roles
 
-`api` (backend key), `verifier` (verifier key), `receipt` (contract address). Set at deploy; owner can rotate. Keys differ.
+`api` (backend key), `verifier` (verifier key) and `owner` (deployer) are **immutable per deployment**; they are separate keys. `receipt` is wired once via `setReceipt` on stake and escrow. To change a role, redeploy. The escrow `token` is an ERC-20 (Hedera HTS tokens expose an ERC-20 facade); `MockStable` is used if Hedera test USDC is unusable.
+
+Deploy order: `MockStable` (if needed) → `MeshStake` → `MeshEscrow` → `MeshReceipt` → `stake.setReceipt` → `escrow.setReceipt`.
 
 ---
 
@@ -582,7 +614,7 @@ One topic (`HCS_TOPIC_ID`). Every message is JSON ≤ 1 KB:
 | --- | --- | --- |
 | Hedera x402 `scheme`, `network` string, `asset`, and whether the facilitator supports `payTo = contract` | Anurag | `docs.hedera.com/solutions/ai/x402` (+ `/facilitators`, `/exact-scheme`) |
 | Which facilitator we use (Official x402 / Ax402 / Blocky402 / own) | Anurag | same |
-| Does `sha256()` precompile behave as expected on Hedera EVM (Merkle verify) | Anurag | write a Foundry test, then a testnet call |
+| ~~Does `sha256()` precompile behave as expected on Hedera EVM~~ **Resolved 2026-11-05:** on-chain `computeLeaf` matches an independent SHA-256 | Anurag | docs/DEPLOY.md |
 | 0G: how the signature/attestation is returned, signer address, and what is signed | Misbah | `pc.0g.ai`, `docs.0g.ai` |
 | World: IDKit vs Agent Pass pick and exact verify endpoint/params | Anurag | `docs.world.org`, `auth.world.org/docs` |
 | Whether `X-PAYMENT` base64 payload carries the nonce we need | Anurag | x402 spec / `x402` package source |

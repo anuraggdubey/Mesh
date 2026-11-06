@@ -59,12 +59,12 @@ describe("format", () => {
   });
 
   it("formats token amounts", () => {
-    expect(formatToken("500000")).toBe("0.5 mUSD");
-    expect(formatToken("1000000")).toBe("1 mUSD");
-    expect(formatToken("100000")).toBe("0.1 mUSD");
-    expect(formatToken("1")).toBe("0.000001 mUSD");
-    expect(formatToken("12345678")).toBe("12.345678 mUSD");
-    expect(formatToken("oops")).toBe("oops mUSD");
+    expect(formatToken("500000")).toBe("0.5 HBAR");
+    expect(formatToken("1000000")).toBe("1 HBAR");
+    expect(formatToken("100000")).toBe("0.1 HBAR");
+    expect(formatToken("1")).toBe("0.000001 HBAR");
+    expect(formatToken("12345678")).toBe("12.345678 HBAR");
+    expect(formatToken("oops")).toBe("oops HBAR");
   });
 
   it("formats durations", () => {

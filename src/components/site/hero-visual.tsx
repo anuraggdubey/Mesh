@@ -46,7 +46,7 @@ export function HeroVisual() {
       </div>
 
       {/* payment card */}
-      <div className="hero-paid absolute -left-4 -top-6 hidden w-[230px] rounded-2xl border border-line bg-surface-2/95 p-3 shadow-2xl backdrop-blur sm:block lg:-left-14">
+      <div className="hero-paid absolute -left-4 -top-6 hidden w-[230px] rounded-2xl border border-line bg-surface-2/95 p-3 shadow-2xl backdrop-blur lg:-left-14 lg:block">
         <p className="text-[10px] font-semibold uppercase tracking-widest text-muted">x402 · Hedera</p>
         <p className="mt-1 flex items-baseline gap-1.5">
           <span className="text-xl font-semibold tabular-nums">0.5</span>

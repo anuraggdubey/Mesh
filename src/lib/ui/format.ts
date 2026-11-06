@@ -10,7 +10,7 @@ export function shortHash(h: string | null | undefined, n = 8): string {
 }
 
 /** Format a token amount held in its smallest unit (`decimals` digits), trimming trailing zeros. */
-export function formatToken(amount: string, decimals = 6, symbol = "mUSD"): string {
+export function formatToken(amount: string, decimals = 6, symbol = "HBAR"): string {
   if (!/^\d+$/.test(amount)) return `${amount} ${symbol}`;
   const padded = amount.padStart(decimals + 1, "0");
   const whole = padded.slice(0, padded.length - decimals);

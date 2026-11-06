@@ -1,8 +1,9 @@
 "use client";
 
-import { IDKitRequestWidget, proofOfHuman } from "@worldcoin/idkit";
+import { proofOfHuman } from "@worldcoin/idkit";
+import { WorldConnectDialog } from "@/components/world-connect-dialog";
 import type { IDKitResult, RpContext } from "@worldcoin/idkit";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 
 interface RpResponse {
   app_id: `app_${string}`;
@@ -22,6 +23,11 @@ type Stage = { name: "idle" } | { name: "loading" } | { name: "unavailable"; mes
 export function WorldVerify() {
   const [stage, setStage] = useState<Stage>({ name: "idle" });
   const [copied, setCopied] = useState(false);
+  const closeWorldDialog = useCallback(() => setStage({ name: "idle" }), []);
+  const finishWorldVerification = useCallback((result: IDKitResult) => {
+    setStage({ name: "done", proof: JSON.stringify(result) });
+  }, []);
+  const failWorldVerification = useCallback((code: string) => setStage({ name: "failed", message: `World ID did not complete (${code}).` }), []);
 
   async function start() {
     setStage({ name: "loading" });
@@ -84,19 +90,16 @@ export function WorldVerify() {
       )}
 
       {stage.name === "open" && (
-        <IDKitRequestWidget
-          open
-          onOpenChange={(o) => {
-            if (!o) setStage({ name: "idle" });
-          }}
+        <WorldConnectDialog
+          onClose={closeWorldDialog}
           app_id={stage.rp.app_id}
           action={stage.rp.action}
           rp_context={stage.rp.rp_context}
           allow_legacy_proofs={false}
           preset={proofOfHuman()}
           environment={stage.rp.environment as "production" | "staging"}
-          onSuccess={(result: IDKitResult) => setStage({ name: "done", proof: JSON.stringify(result) })}
-          onError={(code) => setStage({ name: "failed", message: `World ID did not complete (${String(code)}).` })}
+          onSuccess={finishWorldVerification}
+          onError={failWorldVerification}
         />
       )}
 

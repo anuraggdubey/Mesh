@@ -1,5 +1,6 @@
 import { DatabaseSync } from "node:sqlite";
 import { mkdirSync } from "node:fs";
+import { createHash } from "node:crypto";
 import path from "node:path";
 import { getEnv } from "./env";
 
@@ -199,7 +200,11 @@ function migrate(db: DatabaseSync): void {
   ensureColumn(db, "approvals", "method", "TEXT NOT NULL DEFAULT 'device'"); // device = World IdP device grant, idkit = World ID proof per approval
 }
 
-type GlobalWithDb = typeof globalThis & { __meshDb?: { path: string; db: DatabaseSync } };
+type GlobalWithDb = typeof globalThis & { __meshDb?: { path: string; schema: string; db: DatabaseSync } };
+
+// A long-running server (or a hot-reloaded dev server) keeps its open handle. If the schema changed since it was opened, reopen so new
+// tables exist, instead of failing with "no such table".
+const SCHEMA_ID = createHash("sha1").update(SCHEMA).update(migrate.toString()).digest("hex");
 
 export function dbPath(): string {
   return path.resolve(process.cwd(), getEnv().DATA_DIR, "mesh.db");
@@ -209,7 +214,7 @@ export function dbPath(): string {
 export function getDb(): DatabaseSync {
   const g = globalThis as GlobalWithDb;
   const p = dbPath();
-  if (g.__meshDb && g.__meshDb.path === p) return g.__meshDb.db;
+  if (g.__meshDb && g.__meshDb.path === p && g.__meshDb.schema === SCHEMA_ID) return g.__meshDb.db;
   if (g.__meshDb) g.__meshDb.db.close();
 
   mkdirSync(path.dirname(p), { recursive: true });
@@ -218,7 +223,7 @@ export function getDb(): DatabaseSync {
   db.exec("PRAGMA foreign_keys = ON;");
   db.exec(SCHEMA);
   migrate(db);
-  g.__meshDb = { path: p, db };
+  g.__meshDb = { path: p, schema: SCHEMA_ID, db };
   return db;
 }
 

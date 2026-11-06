@@ -1,24 +1,16 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { parseEther, toHex } from "viem";
+import { pickWallet } from "./wallet-discovery";
+import type { Eip1193, PickedWallet } from "./wallet-discovery";
 
 /**
  * Wallet state for the whole site. Any EIP-1193 wallet (MetaMask and friends): connect, switch to Hedera testnet, sign a plain
  * message to sign in (no transaction, no gas), and send a normal HBAR transfer to deposit credit. We never see a key.
  */
 
-interface Eip1193 {
-  request(args: { method: string; params?: unknown[] | object }): Promise<unknown>;
-  on?: (event: string, handler: (...a: unknown[]) => void) => void;
-  removeListener?: (event: string, handler: (...a: unknown[]) => void) => void;
-}
-declare global {
-  interface Window {
-    ethereum?: Eip1193;
-  }
-}
 
 export interface WalletInfo {
   authenticated: boolean;
@@ -94,6 +86,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [hasWallet, setHasWallet] = useState(false);
   const [version, setVersion] = useState(0);
+  const [walletName, setWalletName] = useState<string | null>(null);
+  const picked = useRef<PickedWallet | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -107,8 +101,12 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // read the wallet and session once after hydration: an effect, so server and client render the same first
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setHasWallet(typeof window !== "undefined" && Boolean(window.ethereum));
     void refresh();
+    void pickWallet().then((w) => {
+      picked.current = w;
+      setHasWallet(Boolean(w));
+      setWalletName(w?.name ?? null);
+    });
   }, [refresh]);
 
   const disconnect = useCallback(async () => {
@@ -120,22 +118,25 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   // if the user switches account in the wallet, the old session no longer matches: sign out
   useEffect(() => {
-    const eth = typeof window !== "undefined" ? window.ethereum : undefined;
+    const eth = picked.current?.provider;
     if (!eth?.on) return;
     const onAccounts = () => void disconnect();
     eth.on("accountsChanged", onAccounts);
     return () => eth.removeListener?.("accountsChanged", onAccounts);
-  }, [disconnect]);
+  }, [disconnect, walletName]);
 
   const connect = useCallback(async () => {
     setError(null);
-    const eth = window.ethereum;
-    if (!eth) {
-      setError("No wallet found in this browser. Install MetaMask (or another EVM wallet), then reload.");
-      return;
-    }
     try {
       setBusy("connecting");
+      const w = picked.current ?? (await pickWallet());
+      if (!w) {
+        setError("No wallet found in this browser. Install MetaMask (or another EVM wallet), then reload.");
+        return;
+      }
+      picked.current = w;
+      setWalletName(w.name);
+      const eth = w.provider;
       const accounts = (await eth.request({ method: "eth_requestAccounts" })) as string[];
       const address = accounts[0];
       if (!address) throw new Error("the wallet returned no account");
@@ -159,7 +160,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   const deposit = useCallback<Ctx["deposit"]>(
     async (amountHbar, onStatus) => {
-      const eth = window.ethereum;
+      const eth = (picked.current ?? (await pickWallet()))?.provider;
       if (!eth) throw new Error("No wallet found in this browser.");
       if (!info?.authenticated || !info.address || !info.depositAddress) throw new Error("Connect your wallet first.");
       if (!(amountHbar >= 0.01)) throw new Error("The minimum deposit is 0.01 HBAR.");

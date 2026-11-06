@@ -1,39 +1,25 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
+import { SiteFooter } from "@/components/site/footer";
+import { SiteNav } from "@/components/site/nav";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
+const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
+const serif = Instrument_Serif({ variable: "--font-serif-display", subsets: ["latin"], weight: "400", style: ["normal", "italic"] });
 
 export const metadata: Metadata = {
-  title: "Mesh · verifiable spare compute",
-  description: "Run jobs on spare machines. The chain proves what ran, slashes a lie, and leaves a receipt.",
+  title: { default: "Mesh: spare compute you can prove", template: "%s · Mesh" },
+  description: "Run jobs on spare machines. A seeded spot-check catches cheaters, a stake is slashed, and the receipt lives on Hedera.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
+    <html lang="en" className={`dark ${geistSans.variable} ${geistMono.variable} ${serif.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col">
-        <header className="border-b border-zinc-400/30">
-          <nav className="mx-auto flex max-w-6xl items-center gap-6 px-5 py-3" aria-label="Main">
-            <Link href="/" className="text-lg font-semibold tracking-tight">
-              Mesh
-            </Link>
-            <Link href="/provider/verify" className="text-sm text-zinc-600 hover:underline dark:text-zinc-300">
-              Become a provider
-            </Link>
-            <span className="hidden text-xs text-zinc-500 sm:inline">verifiable spare compute on Hedera testnet</span>
-          </nav>
-        </header>
-        <main className="mx-auto w-full max-w-6xl flex-1 px-5 py-8">{children}</main>
+        <SiteNav />
+        <main className="flex-1">{children}</main>
+        <SiteFooter />
       </body>
     </html>
   );

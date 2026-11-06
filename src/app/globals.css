@@ -1,22 +1,38 @@
 @import "tailwindcss";
 
+/* The whole site is dark: the app components already carry `dark:` variants, so switch them on with a class. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #07080b;
+  --foreground: #e8eaee;
+  --surface: #0e1016;
+  --surface-2: #141721;
+  --line: rgb(255 255 255 / 0.08);
+  --muted: #8b909c;
+  --accent: #c6f432;
+  --accent-ink: #0b0d12;
+  --danger: #ff6b5b;
+  color-scheme: dark;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--line);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-danger: var(--danger);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-serif: var(--font-serif-display);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  scroll-behavior: smooth;
 }
 
 body {
@@ -24,3 +40,81 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, sans-serif;
 }
+
+::selection {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+/* Hero: 64 tiles fill in, a few turn out to be tampered with, then the verifier catches them. One 14 s loop, CSS only. */
+@keyframes tile-fill {
+  0% { opacity: 0.08; transform: scale(0.85); }
+  6% { opacity: 1; transform: scale(1); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes tile-fill-bad {
+  0% { opacity: 0.08; transform: scale(0.85); background: var(--tile); }
+  6% { opacity: 1; transform: scale(1); background: var(--tile); }
+  58% { background: var(--tile); box-shadow: none; }
+  66% { background: var(--danger); box-shadow: 0 0 18px var(--danger); }
+  92% { background: var(--danger); box-shadow: 0 0 18px var(--danger); opacity: 1; }
+  100% { opacity: 0.08; }
+}
+@keyframes verdict-in {
+  0%, 62% { opacity: 0; transform: translateY(12px) scale(0.97); }
+  70%, 92% { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(0) scale(1); }
+}
+@keyframes paid-in {
+  0%, 2% { opacity: 0; transform: translateY(12px); }
+  8%, 92% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; }
+}
+@keyframes sweep {
+  0% { transform: translateX(-120%); }
+  100% { transform: translateX(220%); }
+}
+
+.hero-tile {
+  --tile: var(--accent);
+  animation: tile-fill 14s ease-out infinite both;
+  background: var(--tile);
+}
+.hero-tile.bad {
+  animation-name: tile-fill-bad;
+}
+.hero-verdict {
+  animation: verdict-in 14s ease-in-out infinite both;
+}
+.hero-paid {
+  animation: paid-in 14s ease-in-out infinite both;
+}
+.glow-sweep {
+  animation: sweep 6s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-tile, .hero-tile.bad, .hero-verdict, .hero-paid, .glow-sweep {
+    animation: none;
+  }
+  .hero-tile.bad { background: var(--danger); }
+  .hero-verdict, .hero-paid { opacity: 1; }
+  html { scroll-behavior: auto; }
+}
+
+/* Long-form docs text */
+.prose-mesh h2 { font-size: 1.5rem; line-height: 2rem; font-weight: 600; letter-spacing: -0.02em; margin-top: 3rem; margin-bottom: 0.75rem; scroll-margin-top: 6rem; }
+.prose-mesh h3 { font-size: 1.1rem; font-weight: 600; margin-top: 2rem; margin-bottom: 0.5rem; scroll-margin-top: 6rem; }
+.prose-mesh p { color: #b5b9c4; line-height: 1.75; margin: 0.9rem 0; }
+.prose-mesh ul, .prose-mesh ol { color: #b5b9c4; line-height: 1.75; margin: 0.9rem 0; padding-left: 1.25rem; }
+.prose-mesh ul { list-style: disc; }
+.prose-mesh ol { list-style: decimal; }
+.prose-mesh li { margin: 0.35rem 0; }
+.prose-mesh a { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
+.prose-mesh strong { color: #f3f4f6; font-weight: 600; }
+.prose-mesh code { font-family: var(--font-mono); font-size: 0.85em; background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px; padding: 0.1rem 0.4rem; color: #e8eaee; }
+.prose-mesh pre { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 1rem 1.25rem; overflow-x: auto; margin: 1.1rem 0; font-size: 0.85rem; line-height: 1.7; }
+.prose-mesh pre code { background: none; border: 0; padding: 0; }
+.prose-mesh table { width: 100%; border-collapse: collapse; margin: 1.2rem 0; font-size: 0.9rem; }
+.prose-mesh th { text-align: left; color: var(--muted); font-weight: 500; padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--line); }
+.prose-mesh td { color: #b5b9c4; padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--line); vertical-align: top; }

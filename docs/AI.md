@@ -21,4 +21,4 @@ ETHGlobal requires documenting where AI tools helped. Keep this file current: ad
 | 2026-11-06 | src/lib/og.ts, review.ts, png.ts, fake-og.ts, review route, components/ai-review.tsx, hcs/receipt/reducer changes, docs/OG-STATUS.md, tests | Claude Code | Built the 0G Private Computer AI review (router client, PNG of the finished render, off-chain signature verification, HCS INFERENCE record, job page panel) with 29 tests against a fake Router | Team to review; needs a live 0G key to confirm the Router response shape |
 | 2026-11-06 | .gitignore, README, docs/README.md, docs/HOSTING.md, repo layout | Claude Code | Reorganized the repository root (private planning notes moved to an ignored folder, AI.md into docs), rewrote the README and added a docs index and hosting guide | Team to review |
 
-Spec files used in AI-assisted workflows live in this repo (the plan and the two task files).
+The implementation plan and the per-person task lists were AI-assisted working notes and are kept locally, outside the published repository. The specification that came out of them is docs/job-spec.md.

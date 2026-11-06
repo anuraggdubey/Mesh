@@ -40,6 +40,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ jobId: string 
     verdict: job.verdict,
     windowEnd: job.windowEnd,
     payment: job.payment ? { ...job.payment, hashscan: hashscanTxUrl(job.payment.transaction, job.payment.network) } : null,
+    plan: job.plan ?? null,
     inference: job.inference
       ? { requestId: job.inference.requestId, provider: job.inference.provider, model: job.inference.model, verification: job.inference.verification, teeVerified: job.inference.teeVerified, signer: job.inference.signer, quality: job.inference.output.quality, digest: job.inference.digest }
       : null,

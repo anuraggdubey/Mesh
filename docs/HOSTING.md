@@ -29,6 +29,15 @@ Required: `API_PRIVATE_KEY`, `HEDERA_RPC_URL`, `HEDERA_CHAIN_ID`, `RECEIPT_ADDRE
 
 Payments: `X402_ENABLED=true`, `X402_NETWORK`, `X402_ASSET`. Audit log: `HCS_TOPIC_ID`. World: `NEXT_PUBLIC_WORLD_APP_ID`, `WORLD_RP_ID`, `WORLD_SIGNING_KEY`, `WORLD_ENVIRONMENT`, and `AGENT_APPROVAL_THRESHOLD`. 0G: `OG_API_KEY`, `OG_API_BASE_URL`, `OG_MODEL`, `OG_ENABLED`.
 
-Do **not** put these on the server: `DEPLOYER_PRIVATE_KEY`, `VERIFIER_PRIVATE_KEY`, `AGENT_PRIVATE_KEY`, `PROVIDER_PRIVATE_KEY`. The agent, providers and verifier run elsewhere and point at the hosted address (`MESH_API_URL` or `API_PUBLIC_URL`).
+Do **not** put these on the server: `DEPLOYER_PRIVATE_KEY`, `VERIFIER_PRIVATE_KEY`, `PROVIDER_PRIVATE_KEY`. Providers and the verifier run elsewhere and point at the hosted address (`MESH_API_URL` or `API_PUBLIC_URL`).
+
+**Wallet flow (needs the agent key on the server).** The website lets a user connect a wallet, deposit HBAR to the agent wallet and have the Mesh agent pay for their jobs, so the server holds `AGENT_PRIVATE_KEY` (testnet only; never reuse it) and signs sessions with `MESH_SESSION_SECRET`:
+
+- `AGENT_PRIVATE_KEY`: an ECDSA key whose Hedera account holds HBAR. Users deposit to its EVM address (or set `AGENT_DEPOSIT_ADDRESS`).
+- `MESH_SESSION_SECRET`: at least 16 random characters. If unset, a key derived from `API_PRIVATE_KEY` is used.
+- `API_INTERNAL_URL`: how the server reaches itself to run the agent. Empty means `http://127.0.0.1:$PORT`, which is right on Railway.
+- Optional: `AGENT_HEDERA_ACCOUNT_ID` (skips the mirror-node lookup of the agent account).
+
+Keep the agent wallet funded only with what you are willing to lose: it is the pool behind every user's prepaid credit.
 
 The three `MESH_DEV_*` switches must stay off on a public server.

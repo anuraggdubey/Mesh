@@ -28,6 +28,19 @@ export interface Tile {
   tileHash: string | null;
 }
 
+/** How a job was chosen: a 0G model planned it from the user's words (with its request id), or the user picked a size by hand. */
+export interface JobPlan {
+  planId: string;
+  source: "og" | "manual";
+  preset: string;
+  reason: string | null;
+  requestId: string | null; // 0G x_0g_trace.request_id (null for a manual plan)
+  provider: string | null;
+  model: string | null;
+  teeVerified: boolean | null;
+  verification: "tee-signature" | "router-checked" | "unverified" | null;
+}
+
 /** An AI review of the finished render, made on 0G Private Computer (docs/OG-STATUS.md). */
 export interface InferenceRecord {
   requestId: string; // x_0g_trace.request_id
@@ -88,6 +101,7 @@ export interface Job {
   sample: SampleInfo | null;
   verdict: "ok" | "fraud" | null;
   inference: InferenceRecord | null;
+  plan?: JobPlan | null; // what the Mesh agent was asked for on behalf of a wallet (and who planned it)
   approvalId?: string | null; // the human approval that let this job be created, if one was needed
   fraud?: { tileIndex: number; owner: string; expectedTileHash: string; claimedTileHash: string } | null; // what the verifier proved
 }

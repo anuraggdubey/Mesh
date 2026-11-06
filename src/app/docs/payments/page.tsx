@@ -47,6 +47,11 @@ export default function Payments() {
         <li><strong>Escrow mirrors the payment.</strong> The payment lands in the treasury account (an x402 payee must be a Hedera account, not an EVM contract), and the escrow contract mirrors it with a test token. The payment on HashScan is real; the escrow balance is not the same coins.</li>
       </ul>
 
+      <h2 id="wallet">Paying from the website</h2>
+      <p>
+        A person does not have to run a script. They connect a wallet, deposit test HBAR, and the Mesh agent pays x402 on their behalf from that credit. See <Link href="/docs/wallet">Wallet, credit &amp; the agent</Link>.
+      </p>
+
       <h2 id="agent">The scripted agent</h2>
       <pre>
         <code>{`npm run agent -- small          # buy one small render and follow it to the end`}</code>

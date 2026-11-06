@@ -42,7 +42,7 @@ const COLS = [
 
 export function SiteFooter() {
   return (
-    <footer className="mt-24 border-t border-line">
+    <footer className="mt-24 border-t border-line print:hidden">
       <div className="mx-auto grid max-w-6xl gap-10 px-5 py-14 md:grid-cols-[1.5fr_repeat(4,1fr)]">
         <div>
           <Link href="/" className="flex items-center gap-3">

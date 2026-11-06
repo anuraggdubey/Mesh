@@ -29,7 +29,8 @@ The site has a landing page (`/`), a dashboard (`/app`) and full documentation (
 | Verifier verdict endpoint, slash and refund bookkeeping | Done. The verifier worker is merged; the live cheat-detection rehearsal is still to run |
 | HCS audit log | Done. Live on topic [`0.0.11333951`](https://hashscan.io/testnet/topic/0.0.11333951) |
 | World ID: provider proof of human (IDKit), human approval of agent spends | IDKit scan verified live. Approval uses the World IdP when a client exists, otherwise an IDKit proof per approval (the auth.world.org portal was not available to us). See [docs/FEEDBACK-world.md](docs/FEEDBACK-world.md) |
-| 0G AI review | Built and tested against a fake Router. The live call needs account credits ([docs/OG-STATUS.md](docs/OG-STATUS.md)) |
+| 0G (plan and review) | A 0G model plans each job from the user's words and reviews the finished render, with request ids and verification levels on the job, the receipt and the audit log. Built and tested against a fake Router; the live calls need account credits ([docs/OG-STATUS.md](docs/OG-STATUS.md)) |
+| Wallet flow: connect a wallet, prepaid credit, the Mesh agent pays for the user, receipts | Built and tested (sign-in, deposits read back from Hedera, credit ledger, runs, receipts you can print and share). Not yet run live with a real MetaMask deposit ([docs/job-spec.md](docs/job-spec.md) section 18) |
 | Website: landing page, dashboard, docs, job page | Done |
 | Permanent hosting | Local server behind a temporary tunnel; see [docs/HOSTING.md](docs/HOSTING.md) |
 

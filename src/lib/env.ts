@@ -100,6 +100,23 @@ const schema = z.object({
   // Dev only: finalize without a verifier verdict. NEVER enable in the demo: it pays out without any spot-check.
   MESH_DEV_AUTO_APPROVE: z.preprocess(blank, z.enum(["true", "false"]).default("false")).transform((v) => v === "true"),
 
+  // ── Wallet sign-in and the Mesh agent that pays on a user's behalf (docs/job-spec.md section 18) ──
+  // Signs the session cookie. Empty = a key derived from API_PRIVATE_KEY (so set one of them).
+  MESH_SESSION_SECRET: z.preprocess(blank, z.string().min(16, "use at least 16 characters").optional()), // SECRET
+  // The agent wallet that pays x402 for users. SECRET (testnet only). Users deposit HBAR to its EVM address.
+  AGENT_PRIVATE_KEY: z.preprocess(
+    (v) => {
+      const s = blank(v);
+      return typeof s === "string" && /^[0-9a-fA-F]{64}$/.test(s) ? `0x${s}` : s;
+    },
+    z.string().regex(/^0x[0-9a-fA-F]{64}$/, "must be a 32-byte hex private key").optional(),
+  ),
+  AGENT_HEDERA_ACCOUNT_ID: z.preprocess(blank, z.string().regex(/^0\.0\.[0-9]+$/, "must look like 0.0.1234").optional()),
+  // Where users send their prepaid HBAR. Empty = the EVM address of AGENT_PRIVATE_KEY.
+  AGENT_DEPOSIT_ADDRESS: address,
+  // How the server reaches itself to run the agent. Empty = http://127.0.0.1:$PORT.
+  API_INTERNAL_URL: z.preprocess(blank, z.string().url().optional()),
+
   // Dev only: skip the x402 payment step and mark new jobs as paid. NEVER enable in the demo or in production.
   MESH_DEV_SKIP_PAYMENT: z.preprocess(blank, z.enum(["true", "false"]).default("false")).transform((v) => v === "true"),
 });

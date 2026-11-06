@@ -13,7 +13,7 @@ export const FAKE_OG_SIGNER = privateKeyToAccount(SIGNER_KEY).address;
 export interface FakeOg {
   url: string; // router base, ends with /v1
   origin: string; // provider origin for the signature endpoint
-  mode: "ok" | "rate-limit-once" | "rate-limit-always" | "error" | "html" | "hang";
+  mode: "ok" | "no-credit" | "rate-limit-once" | "rate-limit-always" | "error" | "html" | "hang";
   tee: boolean | "missing";
   noRequestId: boolean;
   signature: "none" | "good" | "bad-signer" | "unbound" | "http-error";
@@ -38,6 +38,7 @@ export async function startFakeOg(): Promise<FakeOg> {
 
     if (req.url === "/v1/chat/completions" && req.method === "POST") {
       if (f.mode === "hang") return; // never answers
+      if (f.mode === "no-credit") return send(402, { error: { code: "pay_no_balance", message: "Add funds to keep using services.", type: "payment_error" } });
       if (f.mode === "rate-limit-always") return send(429, { error: "slow down" }, { "retry-after": "1" });
       if (f.mode === "rate-limit-once" && limited++ === 0) return send(429, { error: "slow down" }, { "retry-after": "1" });
       if (f.mode === "error") return send(503, { error: "down" });

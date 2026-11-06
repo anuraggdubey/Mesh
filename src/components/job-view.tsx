@@ -14,7 +14,7 @@ import { StatusBadge } from "./status-badge";
 import { StatusTimeline } from "./status-timeline";
 import { PROVIDER_COLORS, providerColor, TileImage } from "./tile-image";
 
-const EVENT_NAMES = ["status", "assigned", "tile", "progress", "claim", "chain", "payment", "approval", "sample", "verdict", "settlement", "inference", "error"];
+const EVENT_NAMES = ["status", "assigned", "tile", "progress", "claim", "chain", "payment", "approval", "plan", "sample", "verdict", "settlement", "inference", "error"];
 const isTxHash = (v: string) => /^0x[0-9a-fA-F]{64}$/.test(v);
 
 // A once-per-second clock. The server snapshot is a constant (0) so nothing time-dependent is evaluated during

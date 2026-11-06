@@ -22,7 +22,7 @@ Related: [job-spec.md](job-spec.md), [QA.md](QA.md), [FEEDBACK-world.md](FEEDBAC
 | --- | --- | --- | --- | --- |
 | **Hedera** | AI Agents That Pay: x402 on Hedera | $6,500 (3 / 2 / 1.5 k) | Strong | Core. x402 server, agent, spending controls, HCS log and receipts are built and tested against a fake facilitator. **Live settlement needs funded accounts (section 6)**. Escrow funding: option B chosen (2.4) |
 | **World** | World ID Agent Pass ($5,000: 2.5 / 1.5 / 1 k) **and** Best Use of IDKit ($2,500, two teams x $1,250) | $7,500 | Strong | Built and tested: IDKit gate, Agent Pass approvals, verify page. **Needs the portal app and client from you (section 6)** |
-| **0G** | Build with 0G Private Computer | $5,000 (2.5 / 1.5 / 1 k) | Weak to medium | **Built (Option 2 chosen by you).** AI review of the finished render on 0G, with request id, TEE verification and HCS record. Tested with a fake Router; **needs your API key and a live call** ([docs/OG-STATUS.md](OG-STATUS.md)) |
+| **0G** | Build with 0G Private Computer | $5,000 (2.5 / 1.5 / 1 k) | Weak to medium | **Built (Option 2 chosen by you).** 0G is now in the main user flow: a 0G model PLANS each job from the user's words (request id, TEE check, kept on the job and in the HCS log), and a vision model REVIEWS the finished render. Tested with a fake Router; **needs your API key and a live call** ([docs/OG-STATUS.md](OG-STATUS.md)) |
 
 If 0G is dropped, a third pick is optional. Candidates from earlier research: Arkiv "build from scratch" (job board, bids, expiring claims) or Arc smart contracts (conditional escrow). Decide by Friday evening; never let this block the core.
 
@@ -191,6 +191,10 @@ Our plan said a Hedera contract would `ecrecover` a 0G signature over a 32-byte 
 ### 4.4 Honest fit assessment
 
 Mesh is a compute marketplace, not a consumer AI app. A bolted-on chat call would be exactly what 0G says it does not want. The only credible fit is an **AI feature people actually use whose output is verifiable on Hedera**, for example: after a render or zoom movie finishes, a 0G vision model describes or checks the frames, shown next to the on-chain receipt, with the request ID and attestation stored in the receipt. Even then "AI is the product" is a stretch. Also, deployed contract addresses and a 0G-specific live demo link are required.
+
+### 4.4b 0G in the main flow (consumer flow)
+
+A person connects a wallet, deposits test HBAR, and types what they need. A 0G model (`planJob` in `src/lib/og.ts`, one chat call with `verify_tee`) turns that into a validated plan; the Mesh agent pays x402 from the user's credit; the plan's **request id** and verification level are stored on the job, shown on the job page and receipt, and published to HCS as a `PLAN` message. If 0G is unavailable the user is told and may pick a size by hand (labelled "not 0G"); we never fake a 0G plan. **What breaks without 0G:** no AI-planned jobs and no traceable plan id. Specs: docs/job-spec.md section 18. **Unproven until a live call:** the real plan call (needs 0G credit) and the model's JSON discipline.
 
 ### 4.5 Decision needed
 

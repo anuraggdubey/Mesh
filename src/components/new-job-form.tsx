@@ -60,7 +60,7 @@ export function NewJobForm() {
       if (res.status === 402 && body.accepts?.[0]) {
         // jobs are paid over x402 by a client that can sign a Hedera payment; the page itself has no wallet
         const a = body.accepts[0];
-        setError(`This job is paid over x402 (${a.amount} of asset ${a.asset} on ${a.network}). Run it with the Mesh agent: npm run agent -- ${preset}`);
+        setError(`This job is paid over x402 (${a.amount} of asset ${a.asset} on ${a.network}). Connect your wallet on the dashboard and let the Mesh agent pay from your prepaid credit, or run a payer yourself with the CLI agent (npm run agent -- ${preset}).`);
         return;
       }
       const detail = body.issues?.[0]?.message ?? body.message ?? body.error ?? `HTTP ${res.status}`;

@@ -179,6 +179,15 @@ h1, h2, h3, .font-display {
   html { scroll-behavior: auto; }
 }
 
+/* Printing (receipts): hide the site chrome and the buttons, keep the card */
+@media print {
+  body { background: #fff; }
+  .no-print { display: none !important; }
+  main { padding: 0 !important; }
+  .card { box-shadow: none !important; }
+  @page { margin: 16mm; }
+}
+
 /* Long-form docs text */
 .prose-mesh h2 { font-size: 1.5rem; line-height: 2rem; font-weight: 500; letter-spacing: -0.02em; margin-top: 3rem; margin-bottom: 0.75rem; scroll-margin-top: 6rem; }
 .prose-mesh h3 { font-size: 1.1rem; font-weight: 500; margin-top: 2rem; margin-bottom: 0.5rem; scroll-margin-top: 6rem; }

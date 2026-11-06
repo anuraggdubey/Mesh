@@ -12,7 +12,7 @@ import { getJob, updateJob } from "./jobs";
  * to remember to publish, and a failed submission is retried on the next flush instead of being lost.
  */
 
-export type AuditType = "PAID" | "ASSIGNED" | "CLAIM" | "SAMPLE" | "VERDICT" | "SLASH" | "RELEASE" | "REFUND" | "APPROVAL" | "INFERENCE";
+export type AuditType = "PAID" | "ASSIGNED" | "CLAIM" | "SAMPLE" | "VERDICT" | "SLASH" | "RELEASE" | "REFUND" | "APPROVAL" | "INFERENCE" | "PLAN";
 
 export interface AuditMessage {
   v: 1;
@@ -49,6 +49,9 @@ export function toAudit(e: EventRow, extra: { signatures?: { provider: string; s
       return msg("VERDICT", d);
     case "approval":
       return msg("APPROVAL", d);
+    case "plan":
+      // how the job was chosen: a 0G request id (or `manual`), never the user's own words
+      return msg("PLAN", { source: d.source, preset: d.preset, requestId: d.requestId, verification: d.verification, model: d.model });
     case "inference":
       // the 0G request id and how it was verified; the description stays off the public log
       return msg("INFERENCE", { requestId: d.requestId, provider: d.provider, model: d.model, verification: d.verification, teeVerified: d.teeVerified, signer: d.signer, digest: d.digest, quality: d.quality });

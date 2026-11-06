@@ -15,6 +15,9 @@ import { getEnv } from "./env";
  *   world_nullifiers  World ID nullifiers already used per action (one human, one provider profile)
  *   approvals    human approvals (World Agent Pass) bound to one exact action, single use
  *   used_nonces  x402 payment nonces and provider-register nonces already used (replay protection)
+ *   auth_nonces  wallet sign-in nonces (single use)
+ *   credits, ledger  prepaid HBAR a user deposited for the Mesh agent to spend, and every change to it
+ *   plans, runs  what the user asked the agent for (planned by 0G or manually) and the agent's run for it
  */
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS jobs (
@@ -113,6 +116,75 @@ CREATE TABLE IF NOT EXISTS used_nonces (
   job_id  TEXT NOT NULL,
   ts      INTEGER NOT NULL
 );
+
+-- Wallet sign-in nonces: single use, short lived, bound to the address that asked for them
+CREATE TABLE IF NOT EXISTS auth_nonces (
+  nonce      TEXT PRIMARY KEY,
+  address    TEXT NOT NULL,          -- lowercase
+  issued_at  INTEGER NOT NULL,
+  expires_at INTEGER NOT NULL,
+  used       INTEGER NOT NULL DEFAULT 0
+);
+
+-- Prepaid credit (tinybars) for the Mesh agent to spend on a user's behalf
+CREATE TABLE IF NOT EXISTS credits (
+  address           TEXT PRIMARY KEY, -- lowercase
+  balance_tinybars  INTEGER NOT NULL CHECK (balance_tinybars >= 0)
+);
+CREATE TABLE IF NOT EXISTS ledger (
+  id       INTEGER PRIMARY KEY AUTOINCREMENT,
+  address  TEXT NOT NULL,
+  kind     TEXT NOT NULL,            -- deposit | job_hold | job_refund | job_spent
+  amount   INTEGER NOT NULL,         -- tinybars, always positive
+  ref      TEXT NOT NULL,            -- deposit tx hash, or the run id
+  ts       INTEGER NOT NULL,
+  receipt_id TEXT NOT NULL           -- rcpt_..., the receipt page for this entry
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_ledger_receipt ON ledger(receipt_id);
+CREATE INDEX IF NOT EXISTS idx_ledger_address ON ledger(address, id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_ledger_once ON ledger(kind, ref);  -- a deposit, hold, refund or spend happens once
+
+-- A plan: what the user asked for, and what 0G (or the user, manually) chose. Single use, short lived.
+CREATE TABLE IF NOT EXISTS plans (
+  plan_id        TEXT PRIMARY KEY,
+  address        TEXT NOT NULL,
+  source         TEXT NOT NULL,      -- og | manual
+  prompt         TEXT,
+  preset         TEXT NOT NULL,
+  price          TEXT NOT NULL,      -- job price units (0.1 = 100000)
+  reason         TEXT,
+  og_request_id  TEXT,
+  og_provider    TEXT,
+  og_model       TEXT,
+  tee_verified   INTEGER,            -- null = the Router did not say
+  verification   TEXT,               -- tee-signature | router-checked | unverified
+  signer         TEXT,
+  digest         TEXT,
+  created_at     INTEGER NOT NULL,
+  expires_at     INTEGER NOT NULL,
+  status         TEXT NOT NULL,      -- planned | used
+  run_id         TEXT
+);
+
+-- A run: the agent buying one job for a plan. A row, so it survives the request that started it.
+CREATE TABLE IF NOT EXISTS runs (
+  run_id        TEXT PRIMARY KEY,
+  address       TEXT NOT NULL,
+  plan_id       TEXT NOT NULL,
+  preset        TEXT NOT NULL,
+  amount        INTEGER NOT NULL,    -- tinybars held for this run
+  status        TEXT NOT NULL,       -- queued | needs_approval | paying | paid | failed
+  approval_id   TEXT,
+  approval_url  TEXT,
+  user_code     TEXT,
+  job_id        TEXT,
+  payment_tx    TEXT,
+  receipt_id    TEXT,                -- the receipt for the credit held for this run
+  error         TEXT,
+  created_at    INTEGER NOT NULL,
+  updated_at    INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_runs_address ON runs(address, created_at);
 `;
 
 /** Add columns introduced after a database file was first created (CREATE TABLE IF NOT EXISTS never alters). */

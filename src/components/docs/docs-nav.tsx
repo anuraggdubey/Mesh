@@ -7,6 +7,7 @@ export const DOC_PAGES = [
   { href: "/docs", title: "Introduction", group: "Start" },
   { href: "/docs/how-it-works", title: "How verification works", group: "Concepts" },
   { href: "/docs/payments", title: "x402 payments & agents", group: "Concepts" },
+  { href: "/docs/wallet", title: "Wallet, credit & the agent", group: "Concepts" },
   { href: "/docs/identity", title: "World ID & approvals", group: "Concepts" },
   { href: "/docs/audit", title: "Receipts, HCS & 0G review", group: "Concepts" },
   { href: "/docs/providers", title: "Run a provider", group: "Guides" },

@@ -101,11 +101,11 @@ export default function Landing() {
             you can prove.
           </h1>
           <p className="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-muted">
-            Run work on machines you do not trust, or earn by lending yours. Mesh checks a random sample, slashes anyone who lies, and keeps the receipt on chain.
+            Connect a wallet, tell the Mesh agent what you need, and it plans the job with 0G and pays for it on Hedera. Mesh checks a random sample of the work, slashes anyone who lies, and gives you a receipt for every step.
           </p>
           <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
             <Link href="/app" className="btn-primary">
-              Run a job
+              Connect wallet and run a job
             </Link>
             <Link href="/provider/verify" className="btn-secondary">
               Become a provider
@@ -278,7 +278,7 @@ export default function Landing() {
             Become a provider
           </Link>
           <Link href="/app" className="btn-secondary">
-            Run a job
+            Connect wallet and run a job
           </Link>
         </div>
       </section>

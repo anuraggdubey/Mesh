@@ -28,3 +28,14 @@ export async function readJson(req: Request, maxBytes: number): Promise<{ value:
     return { error: jsonError(400, "invalid_json", "body is not valid JSON") };
   }
 }
+
+/** Read a JSON body and validate it with a zod schema. Returns the data, or an error Response in the standard shape. */
+export async function parseBody<T>(req: Request, schema: import("zod").ZodType<T>, maxBytes = 8 * 1024): Promise<{ data: T } | { error: Response }> {
+  const read = await readJson(req, maxBytes);
+  if ("error" in read) return { error: read.error };
+  const parsed = schema.safeParse(read.value);
+  if (!parsed.success) {
+    return { error: Response.json({ error: "invalid_body", issues: parsed.error.issues.map((i) => ({ path: i.path.join("."), message: i.message })) }, { status: 400 }) };
+  }
+  return { data: parsed.data };
+}

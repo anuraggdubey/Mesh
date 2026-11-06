@@ -52,6 +52,21 @@ export function JobProof({ state }: { state: JobViewState }) {
           )}
         </dd>
 
+        <dt className="text-zinc-500">Planned by</dt>
+        <dd>
+          {job.plan?.source === "og" && job.plan.requestId ? (
+            <span title={job.plan.requestId}>
+              0G {job.plan.model ?? "model"} · request {job.plan.requestId.slice(0, 12)}…
+              {" "}
+              <span className="text-zinc-500">({job.plan.verification === "tee-signature" ? "TEE signature verified" : job.plan.verification === "router-checked" ? "router-checked only" : "not verified"})</span>
+            </span>
+          ) : job.plan ? (
+            <span className="text-zinc-500">chosen by hand (not 0G)</span>
+          ) : (
+            <span className="text-zinc-500">-</span>
+          )}
+        </dd>
+
         <dt className="text-zinc-500">Human approval</dt>
         <dd>{state.approvalId ? <span title={state.approvalId}>approved in World · {state.approvalId.slice(0, 8)}…</span> : <span className="text-zinc-500">not needed (under the threshold)</span>}</dd>
 

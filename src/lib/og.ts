@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { recoverMessageAddress } from "viem";
+import { z } from "zod";
 import type { Hex } from "viem";
 import { getEnv } from "./env";
 import type { InferenceRecord } from "./types";
@@ -18,7 +19,7 @@ import type { InferenceRecord } from "./types";
 
 export class OgError extends Error {
   constructor(
-    public readonly code: "not_configured" | "rate_limited" | "unavailable" | "timeout" | "bad_response",
+    public readonly code: "not_configured" | "no_credit" | "rate_limited" | "unavailable" | "timeout" | "bad_response",
     message: string,
     public readonly status: number,
     public readonly retryAfter?: number,
@@ -123,21 +124,33 @@ async function checkSignature(chatId: string, requestId: string, content: string
   }
 }
 
-/** Ask a 0G vision model to review a PNG. Never throws for a failed verification; throws OgError for a failed call. */
-export async function reviewImage(png: Buffer, deps: OgDeps = realDeps): Promise<InferenceRecord> {
+/** What one chat call returns: the answer text plus everything we can say about where it came from. */
+export interface OgCall {
+  content: string;
+  requestId: string;
+  provider: string | null;
+  model: string;
+  teeVerified: boolean | null;
+  verification: InferenceRecord["verification"];
+  signer: string | null;
+  signatureVerified: boolean | null;
+  textBound: boolean | null;
+  digest: string;
+}
+
+/**
+ * One chat completion on 0G with the request id, `verify_tee` and signature handling in one place. Throws OgError for a failed call
+ * (no key, no credit, rate limit, outage, bad reply). A failed verification is not an error: it just lowers `verification`.
+ */
+export async function chatOnce(messages: unknown[], opts: { maxTokens: number; temperature?: number }, deps: OgDeps = realDeps): Promise<OgCall> {
   const env = getEnv();
   if (!env.OG_API_KEY) throw new OgError("not_configured", "OG_API_KEY is not set", 503);
   const res = await post(
     `${env.OG_API_BASE_URL.replace(/\/$/, "")}/chat/completions`,
-    {
-      model: env.OG_MODEL,
-      temperature: 0,
-      max_tokens: 300,
-      verify_tee: true,
-      messages: [{ role: "user", content: [{ type: "text", text: REVIEW_PROMPT }, { type: "image_url", image_url: { url: `data:image/png;base64,${png.toString("base64")}` } }] }],
-    },
+    { model: env.OG_MODEL, temperature: opts.temperature ?? 0, max_tokens: opts.maxTokens, verify_tee: true, messages },
     deps,
   );
+  if (res.status === 402) throw new OgError("no_credit", "the 0G account has no credit left (add funds at pc.0g.ai)", 402);
   if (res.status >= 500) throw new OgError("unavailable", `0G answered ${res.status}`, 502);
   if (!res.ok) throw new OgError("bad_response", `0G rejected the request (${res.status})`, 502);
 
@@ -156,6 +169,7 @@ export async function reviewImage(png: Buffer, deps: OgDeps = realDeps): Promise
   const sig = await checkSignature(body.id ?? trace.request_id, trace.request_id, content, deps);
   const signed = sig.verified === true && sig.bound === true;
   return {
+    content,
     requestId: trace.request_id,
     provider: trace.provider ?? null,
     model: env.OG_MODEL,
@@ -166,8 +180,69 @@ export async function reviewImage(png: Buffer, deps: OgDeps = realDeps): Promise
     signatureVerified: sig.verified,
     textBound: sig.bound,
     digest: sig.digest ?? sha256(content),
-    output: parseOutput(content),
+  };
+}
+
+/** Ask a 0G vision model to review a PNG. Never throws for a failed verification; throws OgError for a failed call. */
+export async function reviewImage(png: Buffer, deps: OgDeps = realDeps): Promise<InferenceRecord> {
+  const call = await chatOnce([{ role: "user", content: [{ type: "text", text: REVIEW_PROMPT }, { type: "image_url", image_url: { url: `data:image/png;base64,${png.toString("base64")}` } }] }], { maxTokens: 300 }, deps);
+  return {
+    requestId: call.requestId,
+    provider: call.provider,
+    model: call.model,
+    teeVerified: call.teeVerified,
+    verification: call.verification,
+    signer: call.signer,
+    signatureVerified: call.signatureVerified,
+    textBound: call.textBound,
+    digest: call.digest,
+    output: parseOutput(call.content),
     imageSha256: sha256(png),
     reviewedAt: Math.floor(Date.now() / 1000),
   };
+}
+
+// ───────────────────────── job planning ─────────────────────────
+
+export const PLAN_PRESETS = ["tiny", "small", "full"] as const;
+
+export const PLAN_PROMPT = `You plan compute jobs for Mesh, a marketplace that renders a deterministic Mandelbrot image on spare machines. There are exactly three sizes:
+- "tiny": a 64x64 test image, 4 tiles, about 1 second, costs 0.1 HBAR. For quick checks and tests.
+- "small": a 2048x2048 image, 64 tiles, about 5 seconds, costs 0.5 HBAR. A good default.
+- "full": the same image at 8x the iteration depth, 64 tiles, about 30 seconds, costs 1 HBAR. For the highest detail or a heavy demo.
+Read the user's request and choose ONE size. Reply with ONLY JSON, no other text: {"preset": "tiny|small|full", "reason": "<=2 short sentences on why this size fits the request"}.`;
+
+const planSchema = z.object({ preset: z.enum(PLAN_PRESETS), reason: z.string().trim().min(1).max(400) });
+
+export type Plan = z.infer<typeof planSchema>;
+
+/** Parse the model's answer into a strict plan. Anything that is not exactly that shape is an error, never a guess. */
+export function parsePlan(content: string): Plan {
+  const trimmed = content.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+  let raw: unknown;
+  try {
+    raw = JSON.parse(trimmed);
+  } catch {
+    throw new OgError("bad_response", "the 0G model did not answer with JSON", 502);
+  }
+  const parsed = planSchema.safeParse(raw);
+  if (!parsed.success) throw new OgError("bad_response", "the 0G model chose a size that does not exist or left out its reason", 502);
+  return parsed.data;
+}
+
+export interface OgPlan extends OgCall {
+  plan: Plan;
+}
+
+/** Turn a user's sentence into a job size with a 0G model. The user's text goes in as data; the answer is validated, never trusted. */
+export async function planJob(userPrompt: string, deps: OgDeps = realDeps): Promise<OgPlan> {
+  const call = await chatOnce(
+    [
+      { role: "system", content: PLAN_PROMPT },
+      { role: "user", content: userPrompt.slice(0, 600) },
+    ],
+    { maxTokens: 200 },
+    deps,
+  );
+  return { ...call, plan: parsePlan(call.content) };
 }

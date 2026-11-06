@@ -19,6 +19,10 @@ After a render job reaches `final`, a vision model on 0G looks at the finished i
 
 **What breaks without 0G:** the render, payment and receipt still work, but nobody gets an independent, traceable check of the finished image (a 0G request id and TEE attestation); the AI review panel stays empty.
 
+## Planning in the main flow (new)
+
+`planJob` (`src/lib/og.ts`) asks the configured `OG_MODEL` to turn a user's sentence into `{preset, reason}` as strict JSON, with `verify_tee: true`. It shares `chatOnce` with the review: same request id handling, same signature check, same verification levels, key never logged. A 402 (no credit) is reported as `og_no_credit` with manual choices; a bad or unknown answer is refused. Tested against the fake Router (`src/lib/agent-flow.test.ts`). **Unverified until a live call:** that the chosen model follows the JSON instruction reliably, and the real plan latency.
+
 ## Verification levels (never claimed without the check)
 
 | Badge | Meaning |

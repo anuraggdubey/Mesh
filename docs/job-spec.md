@@ -688,3 +688,53 @@ The `auth.world.org` portal is not open to every account. When the OIDC client i
 - `POST /api/approvals/:id/cancel` turns a pending idkit approval into `denied`. A later valid proof cannot revive it.
 - **Honest limit:** the proof says "a unique human approved this approval id". The job details are bound by the approval's hash on our server, not inside the World proof.
 
+## 18. Wallet sign-in, prepaid credit, the agent run and receipts
+
+A person signs in with a wallet, deposits test HBAR, and the Mesh agent (the server's agent key) pays x402 for their jobs. Code: `src/lib/session.ts`, `deposits.ts`, `credits.ts`, `plans.ts`, `agent-runner.ts`, `receipt.ts`; routes under `src/app/api/{auth,wallet,agent}` and `src/app/api/receipts/by-id`.
+
+### 18.1 Sign-in
+
+| Method + path | Body / response |
+| --- | --- |
+| `POST /api/auth/nonce` | `{address}` returns `{nonce, message, issuedAt, expiresAt}`. The message names the site host, the address, the nonce and the expiry. Valid 5 minutes, single use. 20 per minute per address. |
+| `POST /api/auth/verify` | `{address, nonce, signature}`. The server rebuilds the message from the stored nonce, checks the EIP-191 signature, spends the nonce, sets `mesh_session` (HttpOnly, SameSite=Lax, Secure on https, HS256 JWT, 24 h) and returns `{address, balanceTinybars, balanceHbar}`. Errors: `nonce_unknown`, `nonce_used`, `nonce_expired`, `bad_signature` (401). |
+| `POST /api/auth/logout` | clears the cookie |
+| `GET /api/wallet` | `{authenticated, address, balanceTinybars, balanceHbar, depositAddress, chainId, rpcUrl, payments}`. Works signed out. |
+
+The cookie is signed with `MESH_SESSION_SECRET`, or a key derived from `API_PRIVATE_KEY`. With neither, sign-in answers `503 not_configured`.
+
+### 18.2 Deposits and credit
+
+`POST /api/wallet/deposit {txHash}` (session). The server reads the transaction with `eth_getTransactionReceipt` and `eth_getTransactionByHash` from `HEDERA_RPC_URL` and requires: receipt `status` 0x1; `to` equal to the deposit address (`AGENT_DEPOSIT_ADDRESS`, else the EVM address of `AGENT_PRIVATE_KEY`); `from` equal to the session address; the same chain id; at least 0.01 HBAR. **Units:** `value` is in weibars (1 HBAR = 1e18); tinybars = weibars / 1e10, rounded down. Credited once per hash (`already_credited` 409). `pending` (409) means "not mined yet, ask again"; `not_found` 404; `wrong_recipient`, `wrong_chain`, `failed`, `too_small` 422; `wrong_sender` 403; `rpc_unavailable` 503. 30 checks per minute per wallet. Response: `{credited, creditedTinybars, creditedHbar, balanceTinybars, balanceHbar, receiptId, receiptUrl, hashscan}`.
+
+Tables: `credits(address, balance_tinybars >= 0)` and `ledger(id, address, kind deposit|job_hold|job_refund|job_spent, amount, ref, ts, receipt_id)`. `(kind, ref)` is unique, so a deposit (ref = tx hash), a hold, a refund and a spend (ref = run id) each happen at most once. A hold is a conditional debit, so concurrent runs cannot overspend.
+
+### 18.3 Plans (0G)
+
+`POST /api/agent/plan` (session): `{prompt}` (3 to 600 characters) or `{preset}`.
+- `{prompt}`: one 0G chat call with `verify_tee: true`, answered as strict JSON `{preset: tiny|small|full, reason}` (zod). Returns `{plan: {planId, source:"og", preset, price, priceHbar, reason, expiresAt, og: {requestId, provider, model, teeVerified, verification, signer}}}`. `verification` is `tee-signature` only if the provider's signature over the signed text was verified, else `router-checked` or `unverified`. 10 per minute per wallet.
+- 0G failure: `{error: "og_no_credit|og_rate_limited|og_unavailable|og_timeout|og_bad_response|og_not_configured", message, manual: {presets}}` (503/429/504/502). No plan is stored and no rule-based substitute is made.
+- `{preset}`: a plan with `source: "manual"` and `og: null`.
+
+A plan belongs to one wallet, expires after 10 minutes and can be used once.
+
+### 18.4 Runs
+
+| Method + path | Notes |
+| --- | --- |
+| `POST /api/agent/run {planId}` | (session) uses the plan, holds `price x 100` tinybars of credit (HBAR priced as in section 9), creates a `runs` row and starts the agent in the background. Returns `202 {run}`. Errors: `insufficient_credit` 402 (the plan is NOT consumed), `plan_not_found` 404, `plan_used` 409, `plan_expired` 410, `wrong_owner` 403, `payments_not_configured` 503, `unsupported_asset` 501. |
+| `GET /api/agent/runs/:id` | (owner only) `{run: {runId, status, preset, approvalUrl, userCode, jobId, paymentTx, receiptId, error, ...}, balanceTinybars, balanceHbar}`. Status: `queued`, `needs_approval`, `paying`, `paid`, `failed`. |
+
+The agent is the `Agent` class of section 9 with the user's address as requester and a budget and cap of exactly the plan price. Above `AGENT_APPROVAL_THRESHOLD` the run waits in `needs_approval` with the approval link (section 17) until the human approves. On success the job is stored with `job.plan` (`planId, source, preset, reason, requestId, provider, model, teeVerified, verification`) and a `plan` event, which becomes a `PLAN` message on the HCS log (the request id and verification, never the user's words). On any failure the hold is refunded (once). If the payment settled but the job could not be stored (`job_creation_failed_after_payment`) nothing is refunded automatically and the run fails with that message. Runs that never finish (restart, no approval) are failed and refunded after 20 minutes.
+
+### 18.5 Receipts
+
+Every `deposit`, `job_hold` and `job_refund` ledger row has a receipt id `rcpt_` + 16 hex characters (the internal `job_spent` marker has none).
+
+| Method + path | Notes |
+| --- | --- |
+| `GET /api/wallet/receipts` | (session) `{receipts: [{receiptId, type: deposit|job_payment|refund, title, amountHbar, direction, issuedAt, status, statusTone, page}]}`, newest first |
+| `GET /api/receipts/by-id/:receiptId[?share=token]` | one receipt: `{receiptId, type, title, description, status, statusTone, wallet, issuedAt, issuedAtIso (UTC), amountTinybars, amountHbar, direction, transactions: [{label, hash, url}], job: {jobId, status, page, api}, plan: {source, preset, reason, request, og}, hcs: {topicId, sequences, url}, relatedReceiptId, page, testnet: true}` |
+| page `/receipts/:id` | the printable receipt (Print / Save as PDF, Copy link) |
+
+**Access:** the wallet that owns the receipt (session), or anyone with the exact `share` token (HMAC-SHA256 of the receipt id with the server secret, 24 hex characters). The owner is handed `shareToken` in the JSON to build a link. Without either, the answer is `404 receipt_not_found`, the same as for an unknown id.

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { WalletButton } from "../wallet-button";
 import { Logo } from "./logo";
 
 const LINKS = [
@@ -12,7 +13,7 @@ const LINKS = [
 
 export function SiteNav() {
   return (
-    <header className="sticky top-0 z-40 border-b border-line/60 bg-background/90 backdrop-blur-xl">
+    <header className="sticky top-0 z-40 border-b border-line/60 bg-background/90 backdrop-blur-xl print:hidden">
       <nav className="mx-auto flex h-14 max-w-6xl items-center gap-6 px-5" aria-label="Main">
         <Link href="/" className="flex items-center gap-2 font-display text-[17px] font-medium tracking-tight">
           <Logo />
@@ -32,9 +33,7 @@ export function SiteNav() {
           ))}
         </ul>
         <div className="ml-auto flex items-center gap-2 md:ml-2">
-          <Link href="/app" className="btn-primary !h-9 !px-5 text-sm">
-            Get started
-          </Link>
+          <WalletButton />
           {/* mobile menu: a plain <details>, no JavaScript */}
           <details className="relative md:hidden">
             <summary className="grid h-9 w-9 cursor-pointer list-none place-items-center rounded-full border border-line bg-surface" aria-label="Menu">

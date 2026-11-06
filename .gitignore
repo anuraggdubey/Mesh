@@ -110,3 +110,19 @@ desktop.ini
 .env.railway
 /.next-*/
 /data-*/
+
+# ───────── Demo recordings / video editing (large, local only) ─────────
+/recordings/
+*.mp4
+*.mkv
+*.mov
+*.webm
+*.wav
+*.srt
+/work_*/
+
+# ───────── Misc local files ─────────
+.eslintcache
+*.pid
+*.heapsnapshot
+.claude/

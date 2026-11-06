@@ -19,6 +19,11 @@ import { renderRunInput } from "@/lib/render-input";
 import type { Job, RenderPreset } from "@/lib/types";
 import { runDockerTask, type ProviderTask } from "../provider/docker-runner";
 import { deriveSampleSeed, selectSampleIndices } from "./sampler";
+import {
+  signVerdictReport,
+  type FraudReport,
+  type VerifierSample,
+} from "./verdict-client";
 
 const POLL_MS = Number(process.env.VERIFIER_POLL_MS ?? "10000");
 const SAMPLE_RATE = Number(process.env.VERIFIER_SAMPLE_RATE ?? "0.25");
@@ -133,10 +138,6 @@ async function recomputeSample(job: Job, indices: number[]) {
   });
 }
 
-function transactionEnabled(): boolean {
-  return SUBMIT_TRANSACTIONS;
-}
-
 async function main(): Promise<void> {
   if (!Number.isFinite(POLL_MS) || POLL_MS < 1000)
     throw new Error("VERIFIER_POLL_MS must be at least 1000");
@@ -158,7 +159,7 @@ async function main(): Promise<void> {
   let account: ReturnType<typeof privateKeyToAccount> | undefined;
   let walletClient: ReturnType<typeof createWalletClient> | undefined;
 
-  if (transactionEnabled()) {
+  if (SUBMIT_TRANSACTIONS) {
     const privateKeyValue = requiredEnv("VERIFIER_PRIVATE_KEY");
     const privateKey = (
       privateKeyValue.startsWith("0x")
@@ -194,11 +195,126 @@ async function main(): Promise<void> {
   const stop = () => stopped.abort();
   process.once("SIGINT", stop);
   process.once("SIGTERM", stop);
-  const processed = new Map<
-    string,
-    { claimTx: string; outcome: "clean" | "fraud"; windowEnd: bigint }
-  >();
-  const finalizeReadyReported = new Set<string>();
+  type ProcessedOutcome = {
+    claimTx: string;
+    outcome: "ok" | "fraud";
+    windowEnd: bigint;
+    sample: VerifierSample;
+    fraud?: FraudReport;
+    txHash?: Hex;
+    txMined: boolean;
+    reported: boolean;
+    dryRunLogged: boolean;
+    windowClosedLogged: boolean;
+  };
+  const processed = new Map<string, ProcessedOutcome>();
+
+  const reportVerdict = async (jobId: string, state: ProcessedOutcome) => {
+    if (!account || !state.txHash || !state.txMined) return;
+    const body = await signVerdictReport(account, {
+      jobId: jobId as Hex,
+      result: state.outcome,
+      sample: state.sample,
+      fraud: state.fraud ?? null,
+      finalizeTx: state.outcome === "ok" ? state.txHash : null,
+      fraudTx: state.outcome === "fraud" ? state.txHash : null,
+    });
+    const response = await fetch(`${base}/verifier/verdict`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!response.ok) {
+      const detail = (await response.text()).slice(0, 300);
+      throw new Error(
+        `API verdict report failed (${response.status}): ${detail}`,
+      );
+    }
+    state.reported = true;
+    log(`${state.outcome} verdict reported to API for ${jobId}`);
+  };
+
+  const processOutcome = async (jobId: string, state: ProcessedOutcome) => {
+    if (!walletClient || !account) {
+      if (!state.dryRunLogged) {
+        log(
+          `DRY RUN ${state.outcome} verdict for ${jobId}; no chain transaction or API report sent`,
+        );
+        if (state.fraud) {
+          log(`Fraud payload: ${JSON.stringify(state.fraud)}`);
+        }
+        state.dryRunLogged = true;
+      }
+      return;
+    }
+
+    if (!state.txHash) {
+      const currentBlock = await publicClient.getBlock({ blockTag: "latest" });
+      if (state.outcome === "ok" && currentBlock.timestamp <= state.windowEnd)
+        return;
+      if (
+        state.outcome === "fraud" &&
+        currentBlock.timestamp > state.windowEnd
+      ) {
+        if (!state.windowClosedLogged) {
+          log(
+            `Fraud found for ${jobId}, but the challenge window has closed; no transaction or API verdict sent`,
+          );
+          state.windowClosedLogged = true;
+        }
+        return;
+      }
+
+      const gasPrice = await publicClient.getGasPrice();
+      const hash =
+        state.outcome === "fraud"
+          ? await walletClient.writeContract({
+              account,
+              chain,
+              address: receiptAddress,
+              abi: meshReceiptAbi,
+              functionName: "postFraud",
+              args: [
+                jobId as Hex,
+                state.fraud!.tileIndex,
+                getAddress(state.fraud!.owner),
+                state.fraud!.expectedTileHash,
+                state.fraud!.claimedTileHash,
+                state.fraud!.proof,
+              ],
+              type: "legacy",
+              gasPrice,
+            })
+          : await walletClient.writeContract({
+              account,
+              chain,
+              address: receiptAddress,
+              abi: meshReceiptAbi,
+              functionName: "finalize",
+              args: [jobId as Hex],
+              type: "legacy",
+              gasPrice,
+            });
+      state.txHash = hash;
+    }
+
+    if (!state.txMined) {
+      const txReceipt = await publicClient.waitForTransactionReceipt({
+        hash: state.txHash,
+        timeout: 90_000,
+      });
+      if (txReceipt.status !== "success") {
+        state.txHash = undefined;
+        throw new Error(`${state.outcome} transaction failed`);
+      }
+      state.txMined = true;
+      log(
+        `${state.outcome} transaction confirmed for ${jobId}; tx=${state.txHash}`,
+      );
+    }
+    if (!state.reported) await reportVerdict(jobId, state);
+  };
 
   const poll = async () => {
     const jobs = await fetchPendingJobs(base);
@@ -208,8 +324,13 @@ async function main(): Promise<void> {
       actionable += 1;
       const previous = processed.get(job.jobId);
       if (previous?.claimTx === job.claimTx) {
-        if (previous.outcome === "clean")
-          await finalizeIfReady(job.jobId, previous.windowEnd);
+        try {
+          await processOutcome(job.jobId, previous);
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : String(error);
+          log(`Outcome processing failed for ${job.jobId}: ${message}`);
+        }
         continue;
       }
       try {
@@ -260,6 +381,12 @@ async function main(): Promise<void> {
           claimReceipt.blockHash,
         );
         const indices = selectSampleIndices(seed, job.tileCount, SAMPLE_RATE);
+        const sample: VerifierSample = {
+          beacon: claimReceipt.blockHash,
+          seed,
+          k: indices.length,
+          indices,
+        };
         const { leaves, tiles } = await assertMerkleCommitment(
           job,
           chainReceipt.merkleRoot,
@@ -274,7 +401,7 @@ async function main(): Promise<void> {
             tile.tileHash.toLowerCase() !==
             tiles[tile.index]?.tileHash.toLowerCase(),
         );
-        const windowEnd = chainReceipt.windowEnd;
+        let state: ProcessedOutcome;
         if (mismatch) {
           const claimed = tiles[mismatch.index];
           const proof = await merkleProof(leaves, mismatch.index);
@@ -288,71 +415,37 @@ async function main(): Promise<void> {
             throw new Error(
               `Local Merkle proof validation failed for tile ${mismatch.index}`,
             );
-          processed.set(job.jobId, {
+          state = {
             claimTx: job.claimTx,
             outcome: "fraud",
-            windowEnd,
-          });
-          const currentBlock = await publicClient.getBlock({
-            blockTag: "latest",
-          });
-          if (currentBlock.timestamp > windowEnd) {
-            log(
-              `Fraud found for ${job.jobId}, but the challenge window has closed; no fraud transaction sent`,
-            );
-            continue;
-          }
-          if (walletClient) {
-            const gasPrice = await publicClient.getGasPrice();
-            const hash = await walletClient.writeContract({
-              account: account!,
-              chain,
-              address: receiptAddress,
-              abi: meshReceiptAbi,
-              functionName: "postFraud",
-              args: [
-                job.jobId as Hex,
-                mismatch.index,
-                claimed.owner,
-                `0x${mismatch.tileHash}` as Hex,
-                `0x${claimed.tileHash}` as Hex,
-                proof,
-              ],
-              type: "legacy",
-              gasPrice,
-            });
-            const txReceipt = await publicClient.waitForTransactionReceipt({
-              hash,
-              timeout: 90_000,
-            });
-            if (txReceipt.status !== "success")
-              throw new Error(`postFraud transaction failed: ${hash}`);
-            log(
-              `Fraud submitted for ${job.jobId}, tile ${mismatch.index}; tx=${hash}`,
-            );
-            log(
-              "API verdict notification is pending an API endpoint; the current API does not expose one.",
-            );
-          } else {
-            log(
-              `DRY RUN fraud payload for ${job.jobId}, tile ${mismatch.index}: owner=${claimed.owner}, expected=0x${mismatch.tileHash}, claimed=0x${claimed.tileHash}, proof=${JSON.stringify(proof)}`,
-            );
-            log(
-              "API verdict notification is pending an API endpoint; the current API does not expose one.",
-            );
-          }
-          continue;
+            windowEnd: chainReceipt.windowEnd,
+            sample,
+            fraud: {
+              tileIndex: mismatch.index,
+              owner: claimed.owner,
+              expectedTileHash: `0x${mismatch.tileHash}` as Hex,
+              claimedTileHash: `0x${claimed.tileHash}` as Hex,
+              proof,
+            },
+            txMined: false,
+            reported: false,
+            dryRunLogged: false,
+            windowClosedLogged: false,
+          };
+        } else {
+          state = {
+            claimTx: job.claimTx,
+            outcome: "ok",
+            windowEnd: chainReceipt.windowEnd,
+            sample,
+            txMined: false,
+            reported: false,
+            dryRunLogged: false,
+            windowClosedLogged: false,
+          };
         }
-
-        processed.set(job.jobId, {
-          claimTx: job.claimTx,
-          outcome: "clean",
-          windowEnd,
-        });
-        log(
-          `Sample passed for ${job.jobId}; challenge window ends at ${windowEnd}`,
-        );
-        await finalizeIfReady(job.jobId, windowEnd);
+        processed.set(job.jobId, state);
+        await processOutcome(job.jobId, state);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         log(`Verification failed for ${job.jobId}: ${message}`);
@@ -362,40 +455,6 @@ async function main(): Promise<void> {
       log(
         `No pending API jobs with a mined claim transaction (${jobs.length} pending job(s) scanned)`,
       );
-  };
-
-  const finalizeIfReady = async (jobId: string, windowEnd: bigint) => {
-    const currentBlock = await publicClient.getBlock({ blockTag: "latest" });
-    if (currentBlock.timestamp <= windowEnd) return;
-    if (walletClient) {
-      const gasPrice = await publicClient.getGasPrice();
-      const hash = await walletClient.writeContract({
-        account: account!,
-        chain,
-        address: receiptAddress,
-        abi: meshReceiptAbi,
-        functionName: "finalize",
-        args: [jobId as Hex],
-        type: "legacy",
-        gasPrice,
-      });
-      const txReceipt = await publicClient.waitForTransactionReceipt({
-        hash,
-        timeout: 90_000,
-      });
-      if (txReceipt.status !== "success")
-        throw new Error(`finalize transaction failed: ${hash}`);
-      processed.delete(jobId);
-      log(`Finalized ${jobId}; tx=${hash}`);
-      log(
-        "API status update is pending an API endpoint; the current API does not expose one.",
-      );
-    } else if (!finalizeReadyReported.has(jobId)) {
-      finalizeReadyReported.add(jobId);
-      log(
-        `DRY RUN: ${jobId} passed verification and its challenge window has closed; finalize is ready`,
-      );
-    }
   };
 
   do {

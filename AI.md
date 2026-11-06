@@ -16,4 +16,6 @@ ETHGlobal requires documenting where AI tools helped. Keep this file current: ad
 | 2026-11-06 | docs/TRACKS.md, plan/spec/role updates, src/lib/world.ts, agentpass.ts, approvals.ts, routes (world, approvals), tests | Claude Code | Researched sponsor docs, wrote the tracks reference, built the IDKit gate and Agent Pass approval backend with 51 tests | Team to review |
 | 2026-11-06 | src/lib/x402.ts, agent.ts, verifier.ts, hcs.ts, fake-facilitator.ts, fake-idp.ts, routes (jobs, verifier, receipts), scripts (agent, create-topic), components/world-verify.tsx, /provider/verify, tests, docs updates | Claude Code | Built x402 on Hedera, the scripted agent with spending controls, the verifier verdict endpoint, the HCS audit log and the IDKit widget page, with about 80 new tests | Team to review |
 
+| 2026-11-06 | workers/verifier (render sampling, Docker recomputation, chain settlement, signed API verdict reporting) | Codex | Implemented the verifier worker and deterministic sampling/verdict-signing tests | Team to review |
+
 Spec files used in AI-assisted workflows live in this repo (the plan and the two task files).

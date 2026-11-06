@@ -73,7 +73,10 @@ export function SiteFooter() {
       </div>
       <div className="border-t border-line">
         <div className="mx-auto flex max-w-6xl flex-col gap-2 px-5 py-6 text-xs text-muted sm:flex-row sm:items-center sm:justify-between">
-          <p>Built for ETHGlobal Mumbai 2026 on Hedera testnet. A hackathon project: not audited, test funds only.</p>
+          <p className="flex items-center gap-2.5">
+            <Logo className="h-5 w-5 shrink-0" />
+            <span>Built for ETHGlobal Mumbai 2026 on Hedera testnet. A hackathon project: not audited, test funds only.</span>
+          </p>
           <p>x402 · World ID · 0G · Hedera</p>
         </div>
       </div>

@@ -84,6 +84,12 @@ describe("prepaid credit and deposits", () => {
       expect(getBalance(other.address)).toBe(0);
     });
 
+    it("never credits a transfer from the agent wallet to itself (no money moved)", async () => {
+      send(tx(40), { from: AGENT, to: AGENT });
+      await expect(recordDeposit(AGENT, tx(40))).rejects.toMatchObject({ code: "self_deposit", status: 422 });
+      expect(getBalance(AGENT)).toBe(0);
+    });
+
     it("refuses a failed transaction", async () => {
       send(tx(5), { status: "0x0" });
       await expect(recordDeposit(user.address, tx(5))).rejects.toMatchObject({ code: "failed" });

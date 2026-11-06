@@ -176,6 +176,11 @@ export function AgentPanel() {
               {info.balanceHbar} <span className="text-lg text-muted">HBAR</span>
             </p>
             <p className="mt-1 text-xs text-muted">The agent pays your jobs from this. Test HBAR on Hedera testnet.</p>
+            {info.address && info.depositAddress && info.address.toLowerCase() === info.depositAddress.toLowerCase() && (
+              <p role="alert" className="mt-2 max-w-sm rounded-xl bg-danger/10 px-3 py-2 text-xs text-danger">
+                This account is the Mesh agent wallet itself, so it cannot deposit to itself. Switch to a different account in MetaMask and connect again.
+              </p>
+            )}
             <p className="mt-1 text-xs text-muted">
               In your wallet:{" "}
               <span className="tabular-nums text-foreground">{info.walletBalanceHbar === null ? "unavailable right now" : `${info.walletBalanceHbar} HBAR`}</span>

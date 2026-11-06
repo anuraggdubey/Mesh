@@ -18,7 +18,7 @@ export const MIN_DEPOSIT_TINYBARS = 1_000_000; // 0.01 HBAR: stops dust from fil
 export class DepositError extends Error {
   constructor(
     public readonly status: number,
-    public readonly code: "not_configured" | "invalid_tx" | "pending" | "not_found" | "failed" | "wrong_recipient" | "wrong_sender" | "wrong_chain" | "too_small" | "already_credited" | "rpc_unavailable",
+    public readonly code: "not_configured" | "invalid_tx" | "pending" | "not_found" | "failed" | "wrong_recipient" | "wrong_sender" | "self_deposit" | "wrong_chain" | "too_small" | "already_credited" | "rpc_unavailable",
     message: string,
   ) {
     super(message);
@@ -91,6 +91,9 @@ export async function recordDeposit(sender: string, txHash: string, fetchImpl: t
   if (tx.chainId && BigInt(tx.chainId) !== BigInt(getEnv().HEDERA_CHAIN_ID)) throw new DepositError(422, "wrong_chain", "that transaction is on a different network");
   if (tx.to.toLowerCase() !== to.toLowerCase()) throw new DepositError(422, "wrong_recipient", "that transaction did not pay the Mesh agent wallet");
   if (tx.from.toLowerCase() !== sender.toLowerCase()) throw new DepositError(403, "wrong_sender", "that transaction was sent from a different wallet than the one you signed in with");
+
+  // sending HBAR from the agent wallet to itself moves no money, so it must never become credit
+  if (sender.toLowerCase() === to.toLowerCase()) throw new DepositError(422, "self_deposit", "you are signed in with the Mesh agent wallet itself: sending HBAR to yourself moves no money. Connect a different account to deposit");
 
   const amount = weibarToTinybar(BigInt(tx.value));
   if (amount < MIN_DEPOSIT_TINYBARS) throw new DepositError(422, "too_small", "the minimum deposit is 0.01 HBAR");

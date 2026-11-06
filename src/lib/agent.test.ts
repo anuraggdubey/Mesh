@@ -167,6 +167,14 @@ describe("scripted agent", () => {
       expect(r.paymentTx).not.toBeNull();
     });
 
+    it("works when the portal client uses HTTP Basic authentication", async () => {
+      process.env.WORLD_IDP_CLIENT_AUTH = "basic";
+      resetEnvCache();
+      const r = await new Agent(config(), deps()).runJob("small");
+      expect(r.approvalId).not.toBeNull();
+      delete process.env.WORLD_IDP_CLIENT_AUTH;
+    });
+
     it("does not pay when the human denies", async () => {
       idp.mode = "denied";
       const agent = new Agent(config(), deps());

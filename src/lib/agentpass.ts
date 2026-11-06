@@ -69,6 +69,19 @@ function clientAuth(): { client_id: string; client_secret: string } {
   return { client_id: env.WORLD_IDP_CLIENT_ID, client_secret: env.WORLD_IDP_CLIENT_SECRET };
 }
 
+/**
+ * A form POST to the IdP with our client credentials, sent the way the portal client was registered:
+ * `post` (client_id and client_secret in the body) or `basic` (HTTP Basic header). Set WORLD_IDP_CLIENT_AUTH.
+ */
+function formRequest(auth: { client_id: string; client_secret: string }, params: Record<string, string>): { headers: Record<string, string>; body: URLSearchParams } {
+  const headers: Record<string, string> = { "content-type": "application/x-www-form-urlencoded" };
+  if (getEnv().WORLD_IDP_CLIENT_AUTH === "basic") {
+    headers.authorization = `Basic ${Buffer.from(`${encodeURIComponent(auth.client_id)}:${encodeURIComponent(auth.client_secret)}`).toString("base64")}`;
+    return { headers, body: new URLSearchParams(params) };
+  }
+  return { headers, body: new URLSearchParams({ ...params, ...auth }) };
+}
+
 export interface DeviceAuthorization {
   deviceCode: string; // private: never sent to the agent or the browser
   userCode: string;
@@ -86,8 +99,7 @@ export async function startDeviceAuthorization(fetchImpl: typeof fetch = fetch):
   try {
     res = await fetchImpl(d.device_authorization_endpoint, {
       method: "POST",
-      headers: { "content-type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ ...auth, scope: "openid" }),
+      ...formRequest(auth, { scope: "openid" }),
     });
   } catch {
     throw new AgentPassError("request_failed", "could not reach the World IdP");
@@ -122,8 +134,7 @@ export async function pollDeviceGrant(deviceCode: string, fetchImpl: typeof fetc
   try {
     res = await fetchImpl(d.token_endpoint, {
       method: "POST",
-      headers: { "content-type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:device_code", ...auth, device_code: deviceCode }),
+      ...formRequest(auth, { grant_type: "urn:ietf:params:oauth:grant-type:device_code", device_code: deviceCode }),
     });
   } catch {
     return { status: "transient", reason: "network error" };

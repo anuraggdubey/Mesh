@@ -49,7 +49,9 @@ export async function startFakeIdp(): Promise<FakeIdp> {
       res.writeHead(status, { "content-type": "application/json" });
       res.end(JSON.stringify(body));
     };
-    const authOk = form.get("client_id") === IDP_CLIENT_ID && form.get("client_secret") === IDP_CLIENT_SECRET;
+    const basic = /^Basic (.+)$/.exec(String(req.headers.authorization ?? ""))?.[1];
+    const [bid, bsecret] = basic ? Buffer.from(basic, "base64").toString().split(":").map(decodeURIComponent) : [];
+    const authOk = (form.get("client_id") === IDP_CLIENT_ID && form.get("client_secret") === IDP_CLIENT_SECRET) || (bid === IDP_CLIENT_ID && bsecret === IDP_CLIENT_SECRET);
 
     if (req.url === "/.well-known/openid-configuration") {
       return send(200, { issuer: idp.url, jwks_uri: `${idp.url}/jwks`, token_endpoint: `${idp.url}/token`, device_authorization_endpoint: `${idp.url}/device` });

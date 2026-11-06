@@ -60,6 +60,8 @@ const schema = z.object({
   WORLD_IDP_ISSUER: z.preprocess(blank, z.string().url().default("https://auth.world.org")),
   WORLD_IDP_CLIENT_ID: z.preprocess(blank, z.string().optional()),
   WORLD_IDP_CLIENT_SECRET: z.preprocess(blank, z.string().optional()), // SECRET
+  // How the portal client authenticates: "post" (secret in the body) or "basic" (HTTP Basic). Match what you chose in the portal.
+  WORLD_IDP_CLIENT_AUTH: z.preprocess(blank, z.enum(["post", "basic"]).default("post")),
   WORLD_IDP_ALLOWED_ACR: z.preprocess(blank, z.string().default("https://world.org/oidc/acr/orb")), // comma separated
   // A job priced above this (smallest token unit) needs a fresh human approval. Empty = no approval required.
   AGENT_APPROVAL_THRESHOLD: z.preprocess(blank, z.string().regex(/^[0-9]+$/).optional()),

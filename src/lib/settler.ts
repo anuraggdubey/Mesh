@@ -1,6 +1,7 @@
 import { flushHcs } from "./hcs";
 import { autoReview } from "./review";
-import { chainLoopConfigured, chainNow, escrowStatus, finalizeOnChain, lockEscrowOnChain, postClaimOnChain, refundOnChain } from "./chain";
+import { chainLoopConfigured, chainNow, escrowStatus, finalizeOnChain, lockEscrowOnChain, postClaimOnChain, readOnChainReceipt, refundOnChain } from "./chain";
+import { acquireLease } from "./lease";
 import { getDb } from "./db";
 import { getEnv } from "./env";
 import { appendEvent, getJob, transitionJob, updateJob } from "./jobs";
@@ -78,6 +79,17 @@ export async function chainTick(): Promise<TickReport> {
       appendEvent(job.jobId, "chain", { kind: "locked", tx: r.txHash });
       report.locked.push(job.jobId);
     } catch (e) {
+      // another process may have locked it between our check and our send: if the chain says it is locked, that is success
+      try {
+        if ((await escrowStatus(job.jobId)) !== "None") {
+          updateJob(job.jobId, { lockTx: "already-locked" });
+          appendEvent(job.jobId, "chain", { kind: "locked", tx: null });
+          report.locked.push(job.jobId);
+          continue;
+        }
+      } catch {
+        // fall through to the normal failure path
+      }
       await failChainStep(job, "lock", e, report);
     }
   }
@@ -91,6 +103,18 @@ export async function chainTick(): Promise<TickReport> {
       appendEvent(job.jobId, "claim", { claimTx: r.txHash, merkleRoot: job.merkleRoot, windowEnd: r.windowEnd });
       report.claimsPosted.push(job.jobId);
     } catch (e) {
+      // same race for the claim: if the contract already holds this job's receipt, it was posted by someone else
+      try {
+        const r = await readOnChainReceipt(job.jobId);
+        if (r.status !== "None") {
+          updateJob(job.jobId, { claimTx: "posted", windowEnd: r.windowEnd });
+          appendEvent(job.jobId, "claim", { claimTx: null, merkleRoot: job.merkleRoot, windowEnd: r.windowEnd });
+          report.claimsPosted.push(job.jobId);
+          continue;
+        }
+      } catch {
+        // fall through to the normal failure path
+      }
       await failChainStep(job, "claim", e, report);
     }
   }
@@ -160,6 +184,12 @@ export function startChainLoop(): boolean {
     if (!loop.running) {
       loop.running = true; // single flight: a slow tick never overlaps the next one
       try {
+        // only one process may work the chain when several share this database (dev + start side by side)
+        if (!acquireLease("chain-loop", undefined, Math.max(15, env.CHAIN_TICK_SECONDS * 5))) {
+          loop.running = false;
+          loop.timer = setTimeout(run, every);
+          return;
+        }
         const r = await chainTick();
         for (const e of r.errors) console.warn(`[mesh] chain ${e.step} failed for ${e.jobId.slice(0, 10)}: ${e.message}`);
         const rv = await autoReview(); // 0G AI review of newly final jobs (a no-op unless OG_ENABLED)

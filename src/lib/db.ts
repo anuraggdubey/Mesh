@@ -112,6 +112,12 @@ CREATE TABLE IF NOT EXISTS approvals (
   used_at      INTEGER
 );
 
+CREATE TABLE IF NOT EXISTS leases (
+  name       TEXT PRIMARY KEY,
+  holder     TEXT NOT NULL,
+  expires_at INTEGER NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS used_nonces (
   nonce   TEXT PRIMARY KEY,
   job_id  TEXT NOT NULL,

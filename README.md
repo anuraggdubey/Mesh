@@ -1,40 +1,80 @@
-# Mesh
+<p align="center">
+  <img src="docs/assets/logo.png" alt="Mesh" width="300">
+</p>
 
-**Verifiable spare-compute marketplace.** Anyone can post a compute job; anyone with a spare laptop can run it. The chain proves what ran, slashes a provider who lies, and leaves a public receipt anyone can check.
+<h3 align="center">Spare compute you can prove.</h3>
 
-Built from scratch at **ETHGlobal Mumbai 2026** by Misbah Ansari and Anurag.
+<p align="center">
+  A marketplace where anyone can lend an idle computer and anyone can buy compute, and the chain, not trust, decides who is telling the truth.
+</p>
+
+<p align="center">
+  <a href="https://mesh-592g.onrender.com"><b>Live app</b></a> ·
+  <a href="https://drive.google.com/file/d/1wpvOOErLR30L2QT_l0BdOiN8Uk6OQVxn/view?usp=sharing"><b>Demo video</b></a> ·
+  <a href="docs/README.md">Docs</a> ·
+  <a href="docs/TRACKS.md">Prize tracks</a>
+</p>
+
+<p align="center">
+  <img alt="Hedera" src="https://img.shields.io/badge/Hedera-x402%20%2B%20HCS-222?style=flat-square">
+  <img alt="World ID" src="https://img.shields.io/badge/World%20ID-one%20human%2C%20one%20provider-222?style=flat-square">
+  <img alt="0G" src="https://img.shields.io/badge/0G-AI%20plan%20%26%20review-222?style=flat-square">
+  <img alt="Foundry tests" src="https://img.shields.io/badge/Foundry-67%20tests-5b8def?style=flat-square">
+  <img alt="ETHGlobal Mumbai 2026" src="https://img.shields.io/badge/ETHGlobal-Mumbai%202026-5b8def?style=flat-square">
+</p>
+
+## The problem
+
+Renting your computer to a stranger, or renting a stranger's, only works if you can tell a real answer from a fake one. Today that means trusting a platform. Mesh replaces the platform with checks anyone can reproduce: a provider **commits** to its answers on chain, a random sample is **recomputed after the commitment**, and a provider caught lying is **slashed** while the buyer is refunded in the same transaction.
 
 > The chain does not exist to move the fee. It exists to prove what ran, punish a lie, and leave a receipt anyone in the world can check.
 
-**Partner tracks:** Hedera (x402 payments, HCS audit log), World (IDKit proof of human, human approval of agent spends), 0G (traceable AI review of every finished render).
+## Try it in two minutes
+
+1. Open **https://mesh-592g.onrender.com** (the first load can be slow if the server was idle).
+2. **Connect a wallet** (MetaMask or any EVM wallet) and sign the login message. No transaction, no gas.
+3. **Deposit** at least 0.01 HBAR on Hedera Testnet. Mesh verifies the transfer on chain, credits your prepaid balance once, and issues a receipt.
+4. Ask the **Mesh agent** for a small render. A 0G model plans the job, the agent pays over x402 from your credit, and a real provider renders the 64 tiles live.
+5. Open the **job page**: tiles arrive as they are computed, then a 45 second challenge window runs while the verifier recomputes a sample. The receipt links the contract, the x402 payment on HashScan and the HCS audit log.
+
+Use a wallet that is not the agent's own account (the app disables self-deposits). Network settings for MetaMask: Hedera Testnet, RPC `https://testnet.hashio.io/api`, chain ID `296`, symbol `HBAR`, explorer https://hashscan.io/testnet. A provider (an operator's laptop with Docker) is online on the live site. The demo video shows the provider side: the worker, Docker and the verifier.
 
 ## How it works
 
-1. A requester (a person, or a scripted agent) posts a job and pays through **x402 on Hedera**. The settled payment goes to a treasury account and the escrow contract mirrors it.
-2. The job (a tiled render) is split into 64 tiles and run by staked providers inside Docker, offline.
-3. Each provider signs a claim over its tile hashes. The API commits a **Merkle root** of all tiles on chain, which opens a 45 s **challenge window**.
-4. A verifier recomputes a random, seeded sample of tiles. A wrong tile produces a **fraud proof**: the provider is **slashed** and the requester **refunded**. Otherwise the receipt becomes **final** and providers are paid.
-5. When a render is final, a vision model on **0G Private Computer** reviews the image. The job page shows the review with its 0G request ID and how it was verified. See [docs/OG-STATUS.md](docs/OG-STATUS.md).
-6. **World ID** keeps it to one provider profile per human, and a human approves large agent spends. Every state change is also written to a **Hedera Consensus Service** audit log.
+```mermaid
+flowchart LR
+  B["Buyer or AI agent"] -->|"x402 payment, HBAR"| API["Mesh API"]
+  API -->|"escrow + receipt"| C[("Contracts<br/>Hedera EVM")]
+  API -->|"64 tiles"| P["Provider worker<br/>Docker, no network"]
+  P -->|"results + signed claim"| API
+  API -->|"Merkle root, 45 s window"| C
+  V["Verifier worker<br/>recomputes a random sample"] -->|"verdict"| API
+  API -->|"final: pay providers<br/>fraud: slash + refund"| C
+  API -->|"every event"| H["HCS audit topic"]
+  W["World ID"] -.->|"one provider per human"| API
+  O["0G model"] -.->|"plans the job, reviews the render"| API
+```
 
-The site has a landing page (`/`), a dashboard (`/app`) and full documentation (`/docs`). Exact formats and interfaces are in [docs/job-spec.md](docs/job-spec.md).
+1. **Pay.** A requester posts a job and pays through **x402 on Hedera**. The settled payment goes to a treasury account and the escrow contract mirrors it.
+2. **Compute.** The job (a tiled render) is split into 64 tiles and run by staked providers inside Docker, offline, from a pinned image digest.
+3. **Commit.** Each provider signs a claim over its tile hashes. The API commits a **Merkle root** of all tiles on chain, which opens a 45 s **challenge window**.
+4. **Verify.** A verifier recomputes a random, seeded sample of tiles. A wrong tile produces a **fraud proof**: the provider is **slashed** and the requester **refunded**. Otherwise the receipt becomes **final** and providers are paid.
+5. **Review.** A vision model on **0G** reviews each finished render and the job page shows its request ID and how it was verified ([docs/OG-STATUS.md](docs/OG-STATUS.md)). The review is advisory and never decides payment.
+6. **Audit.** **World ID** keeps it to one provider profile per human. Every state change is also published to a **Hedera Consensus Service** topic.
 
-## Status
+Exact formats and interfaces are in [docs/job-spec.md](docs/job-spec.md).
 
-| Area | State |
-| --- | --- |
-| Smart contracts (stake, escrow, receipt) | Done: 67 Foundry tests, deployed to Hedera testnet |
-| API: store, state machine, provider protocol, claims and Merkle root, chain loop (lock, claim, finalize, refund), receipts, live SSE events | Done and tested; verified with real Docker workers on a local chain |
-| x402 payment on `POST /api/jobs` and the scripted agent with spending controls | Done. **Live on Hedera testnet** (see the transaction below) |
-| Verifier verdict endpoint, slash and refund bookkeeping | Done. The verifier worker is merged; the live cheat-detection rehearsal is still to run |
-| HCS audit log | Done. Live on topic [`0.0.11333951`](https://hashscan.io/testnet/topic/0.0.11333951) |
-| World ID: provider proof of human (IDKit), human approval of agent spends | IDKit scan verified live. Approval uses the World IdP when a client exists, otherwise an IDKit proof per approval (the auth.world.org portal was not available to us). See [docs/FEEDBACK-world.md](docs/FEEDBACK-world.md) |
-| 0G (plan and review) | A 0G model plans each job from the user's words and reviews the finished render, with request ids and verification levels on the job, the receipt and the audit log. Built and tested against a fake Router; the live calls need account credits ([docs/OG-STATUS.md](docs/OG-STATUS.md)) |
-| Wallet flow: connect a wallet, prepaid credit, the Mesh agent pays for the user, receipts | Built and tested (sign-in, deposits read back from Hedera, credit ledger, runs, receipts you can print and share). Not yet run live with a real MetaMask deposit ([docs/job-spec.md](docs/job-spec.md) section 18) |
-| Website: landing page, dashboard, docs, job page | Done |
-| Permanent hosting | Local server behind a temporary tunnel; see [docs/HOSTING.md](docs/HOSTING.md) |
+## Partner tracks
 
-## Deployed contracts (Hedera testnet, chain ID 296)
+| Track | What we use it for | Code |
+| --- | --- | --- |
+| **Hedera** | x402 v2 payments (`@x402/hedera`, exact scheme) from a buyer or an AI agent's prepaid credit; stake and deposits read back from Hedera; every event published to an HCS topic | [`x402.ts`](src/lib/x402.ts), [`agent.ts`](src/lib/agent.ts), [`hcs.ts`](src/lib/hcs.ts) |
+| **World** | IDKit proof of human for provider registration; nullifiers stored and enforced on chain, so one human gets one provider profile; human approval of large agent spends | [`world-verify.tsx`](src/components/world-verify.tsx), [`MeshStake.sol`](contracts/src/MeshStake.sol) |
+| **0G** | A 0G model plans each job from the user's words and reviews the finished render, with `verify_tee`, the Router request ID and a signature check on every call | [`og.ts`](src/lib/og.ts) |
+
+Feedback for each sponsor: [Hedera](docs/FEEDBACK-hedera.md), [World](docs/FEEDBACK-world.md), [0G](docs/OG-STATUS.md).
+
+## Live on Hedera testnet (chain ID 296)
 
 | Contract | Address |
 | --- | --- |
@@ -43,96 +83,69 @@ The site has a landing page (`/`), a dashboard (`/app`) and full documentation (
 | MeshEscrow | [`0x16eFE46De1CdA06Be455607A63514319aE130010`](https://hashscan.io/testnet/contract/0x16eFE46De1CdA06Be455607A63514319aE130010) |
 | MeshReceipt | [`0x0118652ea87a8616Cb51979F5F121FC598bf3e7E`](https://hashscan.io/testnet/contract/0x0118652ea87a8616Cb51979F5F121FC598bf3e7E) |
 
-Challenge window 45 s, minimum stake 0.5 HBAR, slash 0.2 HBAR. Deployment notes: [docs/DEPLOY.md](docs/DEPLOY.md).
+Challenge window 45 s, minimum stake 0.5 HBAR, slash 0.2 HBAR ([docs/DEPLOY.md](docs/DEPLOY.md)).
 
-## Settled x402 payments (Hedera requirement)
+**Settled x402 payments** from the agent account `0.0.11333706` to the treasury `0.0.11327733`, through the official x402 facilitator:
 
-| Transaction ID | Amount | HashScan |
+| Transaction | Amount | HashScan |
 | --- | --- | --- |
 | `0.0.9185802@1793937163.341350400` | 0.5 HBAR | [view](https://hashscan.io/testnet/transaction/0.0.9185802-1793937163-341350400) |
 | `0.0.9185802@1793941137.019516163` | 0.1 HBAR | [view](https://hashscan.io/testnet/transaction/0.0.9185802-1793941137-019516163) |
 
-Both are payments from the agent account `0.0.11333706` to the treasury `0.0.11327733`, settled through the official x402 facilitator. The audit log is HCS topic [`0.0.11333951`](https://hashscan.io/testnet/topic/0.0.11333951).
+**Audit log:** HCS topic [`0.0.11333951`](https://hashscan.io/testnet/topic/0.0.11333951).
 
-**How a payment works.** The agent posts a job; the API answers `402` with a price in HBAR on `hedera:testnet`; the agent signs a Hedera transfer and retries; the facilitator verifies and settles it on Hedera (it pays the network fee); only then is the job created. A signed payment works once. Above a spending threshold the agent must first get a human approval in World for that exact job. The payment on HashScan is real; the escrow contract holds a test token that mirrors it. More in [/docs/payments](src/app/docs/payments/page.tsx) or the running site.
+**How an x402 payment works.** The agent posts a job; the API answers `402` with a price in HBAR on `hedera:testnet`; the agent signs a Hedera transfer and retries; the facilitator verifies and settles it (and pays the network fee); only then is the job created. A signed payment works once. Above a spending threshold the agent must first get a human approval in World for that exact job.
 
-## Quick start
+## Built with
 
-Requires Node.js 24, npm, Docker Desktop (provider machine only) and Foundry (contracts only).
+Next.js 16 and React 19 · TypeScript · Tailwind · SQLite (`node:sqlite`) · Solidity and Foundry (67 tests) · viem and wagmi · `@hiero-ledger/sdk` · `@x402/core` and `@x402/hedera` · `@worldcoin/idkit` · 0G Router · Docker · Vitest · Render
+
+## Run it yourself
+
+Requires Node.js 24 and npm. Docker Desktop is needed on a provider machine, and Foundry only for the contracts.
 
 ```bash
 npm install
-cp .env.example .env         # fill in your own values; .env is git-ignored
-npm run dev                  # http://localhost:3000
+cp .env.example .env     # fill in your own values; .env is git-ignored
+npm run dev              # http://localhost:3000
 ```
 
 | Command | What it does |
 | --- | --- |
-| `npm run build` / `npm start` | Production build and server. Use this, not `dev`, to review the site. |
-| `npm test` | Vitest suite |
-| `npm run typecheck` / `npm run lint` | Static checks |
+| `npm run build` / `npm start` | Production build and server (use this to review the site) |
+| `npm test` / `npm run typecheck` / `npm run lint` | Vitest suite and static checks |
+| `npm run worker:provider` | Provider worker (runs tiles in Docker) |
+| `npm run worker:verifier` | Verifier worker (recomputes the sample) |
 | `npm run agent -- small` | Scripted agent: pays over x402 and follows one job |
-| `npm run agent:activate` | One-time: gives a new agent wallet its public key on Hedera |
-| `npm run hcs:create-topic` | One-time: create the HCS audit topic |
-| `npm run worker:provider` | Provider worker (Docker) |
-| `npm run worker:verifier` | Verifier worker |
-| `npm run worker:mock` | Mock provider for development |
-| `npm run chain:local` | Local anvil chain with contracts and staked providers |
+| `npm run chain:local` | Local anvil chain with contracts and staked providers, free to rehearse ([docs/LOCAL-REHEARSAL.md](docs/LOCAL-REHEARSAL.md)) |
+| `cd contracts && forge test` | Contract tests |
 
-Contracts (Foundry; on Windows Git Bash add it to PATH first):
+Setting `MESH_TAMPER=true` makes a provider cheat on purpose, so the detect, slash and refund path can be shown live. Private keys and API secrets belong only in your local `.env`.
 
-```bash
-cd contracts
-forge build
-forge test                   # 67 tests
-```
-
-Three ECDSA testnet accounts (deployer, api, verifier) funded with HBAR from https://portal.hedera.com are needed to deploy. MetaMask settings for Hedera Testnet: RPC `https://testnet.hashio.io/api`, chain ID `296`, symbol `HBAR`, explorer https://hashscan.io/testnet.
-
-## Environment variables
-
-[.env.example](.env.example) lists everything. Public values (contract addresses, World app ID) are safe to commit; **private keys and API secrets live only in your local `.env`, which is git-ignored.** Never paste a key into chat, an issue, or a commit.
-
-## Project layout
+## Repository
 
 ```
-src/
-  app/            Next.js pages (landing, /app, /docs, /jobs, /provider, /approve) and API routes (src/app/api)
-  components/     React components (site/ for nav, footer and hero; docs/ for the docs shell)
-  lib/            core logic: jobs, claims, chain loop, x402, agent, HCS, World, 0G, verifier, env, db
-workers/          provider, verifier and mock-provider processes (run with tsx)
-scripts/          agent, HCS topic, staking, local chain and smoke-test helpers
-contracts/        Foundry project: src/, test/, script/
-jobs/             Docker job images (echo, render, matmul, infer)
-docs/             specs, deployment, QA, track notes and feedback (index in docs/README.md)
+src/app/         Next.js pages (landing, /app, /docs, /jobs, /provider, /approve) and API routes
+src/lib/         core logic: jobs, claims, chain loop, x402, agent, HCS, World, 0G, verifier, db
+src/components/  React components
+workers/         provider, verifier and mock-provider processes
+contracts/       Foundry project: MeshStake, MeshEscrow, MeshReceipt
+jobs/            Docker job images
+docs/            specs, deployment, QA, track notes and feedback
 ```
 
-## Documentation
+More: [job spec](docs/job-spec.md) · [provider protocol](docs/PROVIDER-PROTOCOL.md) · [hosting](docs/HOSTING.md) · [QA results](docs/QA.md)
 
-- [docs/README.md](docs/README.md): index of everything below.
-- [docs/job-spec.md](docs/job-spec.md): the full API, contract and data specification.
-- [docs/TRACKS.md](docs/TRACKS.md): what each prize track requires, our decisions, and what is built.
-- [docs/PROVIDER-PROTOCOL.md](docs/PROVIDER-PROTOCOL.md): how the provider worker talks to the API.
-- [docs/LOCAL-REHEARSAL.md](docs/LOCAL-REHEARSAL.md): run the whole stack locally (anvil + Docker workers), free.
-- [docs/HOSTING.md](docs/HOSTING.md): put the API on the internet.
-- [docs/QA.md](docs/QA.md): determinism, timing and detection-rate results.
-- [docs/AI.md](docs/AI.md): where AI assistance was used.
+## Honest limits
 
-## Honest limits (v1)
-
-- Verification is **optimistic**: a claim is pending for a challenge window, and a single Mesh verifier key decides fraud claims. The verifier cannot forge a result, only finalize or reject, and every decision is public and reproducible.
-- Sampling is probabilistic: a provider that corrupts one tile of 64 is usually missed; detection rises fast with more bad tiles (see [docs/QA.md](docs/QA.md)).
-- The API attributes tiles to providers (the owner address is inside each Merkle leaf). Provider signatures are published to the audit log, not checked on chain.
-- The escrow contract mirrors the x402 payment with a test token. Real token escrow would need a contract redeploy.
-- A provider can see the job inputs. Docker is not a hard security boundary.
-- A 0G TEE signature proves the output came from the TEE, not which prompt produced it. The AI review is advisory: it never decides payment, slashing or finalization, and it can be wrong.
-- World ID staging proofs use test identities and are not production Sybil resistance. The approval of agent spends may use an IDKit proof instead of the World IdP client.
+- Verification is **optimistic**: a claim is pending for a challenge window, and a single Mesh verifier key decides fraud claims. It can only finalize or reject, and every decision is public and reproducible.
+- Sampling is probabilistic. A provider that corrupts one tile of 64 is usually missed; detection rises fast with more bad tiles ([docs/QA.md](docs/QA.md)).
+- The escrow contract mirrors the x402 payment with a test token. Real token escrow needs a contract redeploy.
+- A provider can see the job inputs, and Docker is not a hard security boundary.
+- A 0G TEE signature proves where an output came from, not which prompt produced it. The AI review is advisory and can be wrong. When the signature cannot be checked, the UI says "not verified".
+- World ID staging proofs use test identities, so this is not production Sybil resistance. Approvals may use an IDKit proof instead of the World IdP client.
 - Test network, test funds, no outside audit. Do not use real money.
 
-## Third-party code
+## Team
 
-Next.js, React, Tailwind, viem, TanStack Query, `@hiero-ledger/sdk`, `@worldcoin/idkit`, `@x402/core`, `@x402/hedera`, jose, zod, tsx, vitest, Foundry and forge-std (vendored in `contracts/lib`). See `package.json`. No pre-existing project code was reused.
-
-## AI use
-
-AI assistance is documented in [docs/AI.md](docs/AI.md).
+Built from scratch at **ETHGlobal Mumbai 2026** by **Misbah Ansari** and **Anurag Dubey**. No pre-existing project code was reused. AI assistance is documented in [docs/AI.md](docs/AI.md).

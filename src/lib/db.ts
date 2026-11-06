@@ -210,7 +210,10 @@ type GlobalWithDb = typeof globalThis & { __meshDb?: { path: string; schema: str
 
 // A long-running server (or a hot-reloaded dev server) keeps its open handle. If the schema changed since it was opened, reopen so new
 // tables exist, instead of failing with "no such table".
-const SCHEMA_ID = createHash("sha1").update(SCHEMA).update(migrate.toString()).digest("hex");
+// Hash of the schema text only (identical in every bundle of the server, unlike a function's source, which each bundle may minify
+// differently), plus a number to bump when a column migration is added.
+const MIGRATION_VERSION = 4;
+const SCHEMA_ID = createHash("sha1").update(SCHEMA).update(String(MIGRATION_VERSION)).digest("hex");
 
 export function dbPath(): string {
   return path.resolve(process.cwd(), getEnv().DATA_DIR, "mesh.db");
@@ -221,11 +224,13 @@ export function getDb(): DatabaseSync {
   const g = globalThis as GlobalWithDb;
   const p = dbPath();
   if (g.__meshDb && g.__meshDb.path === p && g.__meshDb.schema === SCHEMA_ID) return g.__meshDb.db;
-  if (g.__meshDb) g.__meshDb.db.close();
+  // Close the old handle only when the database FILE changed (tests). On a schema change another part of the server may still be using it.
+  if (g.__meshDb && g.__meshDb.path !== p) g.__meshDb.db.close();
 
   mkdirSync(path.dirname(p), { recursive: true });
   const db = new DatabaseSync(p);
   db.exec("PRAGMA journal_mode = WAL;");
+  db.exec("PRAGMA busy_timeout = 5000;"); // two server processes on one file: wait for the other's write instead of failing
   db.exec("PRAGMA foreign_keys = ON;");
   db.exec(SCHEMA);
   migrate(db);

@@ -7,11 +7,12 @@ import { colorizeTile } from "@/lib/ui/colorize";
 import { formatDuration, formatToken, hashscan, shortAddr, shortHash } from "@/lib/ui/format";
 import { buildTimeline, initialViewState, ownerTileCounts, reduceJobView, renderGeometry } from "@/lib/ui/job-view";
 import type { Job } from "@/lib/types";
+import { AiReview } from "./ai-review";
 import { StatusBadge } from "./status-badge";
 import { StatusTimeline } from "./status-timeline";
 import { PROVIDER_COLORS, providerColor, TileImage } from "./tile-image";
 
-const EVENT_NAMES = ["status", "assigned", "tile", "progress", "claim", "chain", "sample", "verdict", "settlement", "error"];
+const EVENT_NAMES = ["status", "assigned", "tile", "progress", "claim", "chain", "sample", "verdict", "settlement", "inference", "error"];
 const isTxHash = (v: string) => /^0x[0-9a-fA-F]{64}$/.test(v);
 
 // A once-per-second clock. The server snapshot is a constant (0) so nothing time-dependent is evaluated during
@@ -265,6 +266,8 @@ export function JobView({ jobId }: { jobId: string }) {
               )}
             </dl>
           </section>
+
+          <AiReview jobId={job.jobId} final={state.status === "final"} initial={job.inference} />
 
           <section className="rounded-lg border border-zinc-400/30 p-4">
             <h2 className="mb-3 text-sm font-semibold">Activity</h2>

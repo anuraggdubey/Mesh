@@ -148,6 +148,11 @@ export function reduceJobView(state: JobViewState, action: ViewAction): JobViewS
       line(kind === "released" ? "challenge window passed: providers paid from escrow" : "payment refunded to the requester", kind === "released" ? "good" : "info");
       break;
     }
+    case "inference": {
+      const quality = String(d.quality ?? "unknown");
+      line(`AI review on 0G (request ${String(d.requestId ?? "").slice(0, 12)}): ${quality}`, quality === "good" ? "good" : quality === "unknown" ? "info" : "bad");
+      break;
+    }
     case "error": {
       next.error = { code: String(d.code ?? "error"), message: String(d.message ?? "") };
       line(`error: ${next.error.code}${next.error.message ? ` (${next.error.message})` : ""}`, "bad");

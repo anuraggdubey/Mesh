@@ -22,7 +22,7 @@ Related: [MESH-IMPLEMENTATION-PLAN.md](../MESH-IMPLEMENTATION-PLAN.md), [job-spe
 | --- | --- | --- | --- | --- |
 | **Hedera** | AI Agents That Pay: x402 on Hedera | $6,500 (3 / 2 / 1.5 k) | Strong | Core. x402 server, agent, spending controls, HCS log and receipts are built and tested against a fake facilitator. **Live settlement needs funded accounts (section 6)**. Escrow funding: option B chosen (2.4) |
 | **World** | World ID Agent Pass ($5,000: 2.5 / 1.5 / 1 k) **and** Best Use of IDKit ($2,500, two teams x $1,250) | $7,500 | Strong | Built and tested: IDKit gate, Agent Pass approvals, verify page. **Needs the portal app and client from you (section 6)** |
-| **0G** | Build with 0G Private Computer | $5,000 (2.5 / 1.5 / 1 k) | **Weak** | **Dropped by default** (Option 1 in 4.5). Not built. Say so if you want it as a stretch |
+| **0G** | Build with 0G Private Computer | $5,000 (2.5 / 1.5 / 1 k) | Weak to medium | **Built (Option 2 chosen by you).** AI review of the finished render on 0G, with request id, TEE verification and HCS record. Tested with a fake Router; **needs your API key and a live call** ([docs/OG-STATUS.md](OG-STATUS.md)) |
 
 If 0G is dropped, a third pick is optional. Candidates from earlier research: Arkiv "build from scratch" (job board, bids, expiring claims) or Arc smart contracts (conditional escrow). Decide by Friday evening; never let this block the core.
 
@@ -192,18 +192,19 @@ Mesh is a compute marketplace, not a consumer AI app. A bolted-on chat call woul
 
 ### 4.5 Decision needed
 
-- **Option 1 (recommended default): drop 0G as a pick** and spend the time on Hedera and World quality plus the cheat-caught demo. Optionally add a third pick later (Arkiv).
-- **Option 2: keep 0G as a stretch**, only after the core flow, the verifier and the cheat demo are working: one real `infer` job type with request ID and verified signature on chain, plus an AI feature visible in the UI. Needs: a 0G account, deposit, API key, and a live response to inspect the signed `text`.
+- ~~**Option 1: drop 0G as a pick**~~ (not chosen) and spend the time on Hedera and World quality plus the cheat-caught demo. Optionally add a third pick later (Arkiv).
+- **Option 2 (CHOSEN): build it.** Built without a contract redeploy: the 0G attestation is verified off chain and the request id goes on the receipt and HCS. Original scope: one real `infer` job type with request ID and verified signature on chain, plus an AI feature visible in the UI. Needs: a 0G account, deposit, API key, and a live response to inspect the signed `text`.
 
-### 4.6 Tasks and owners (only if Option 2)
+### 4.6 Tasks and owners (Option 2, built)
 
 | Task | Owner |
 | --- | --- |
-| Create 0G account, deposit test credits, create the `sk-` key; ask 0G about team credits | **Anurag (you)** or Misbah |
-| Spike: one call with `verify_tee`; capture request ID, provider, signed `text`, signature; write `docs/OG-STATUS.md` | Misbah |
-| `infer` job in the provider worker: call the Router, return output plus request ID and signature | Misbah |
-| `postAttested` over `text` bytes, contract tests, redeploy | Anurag |
-| API verification and UI showing request ID + "signature verified on Hedera" | Anurag |
+| Create 0G account, deposit test credits, create the `sk-` key; ask 0G about team credits | **Anurag (you)**: steps in [OG-STATUS.md](OG-STATUS.md) |
+| Spike: one live call with `verify_tee`; record `x_0g_trace`, the signed `text`, the signature, the signer; paste to Claude | **you** (or Misbah), commands in OG-STATUS.md |
+| Router client, PNG of the finished render, review service, `POST /api/jobs/:id/review`, auto review in the chain loop | done (Claude), 27 tests with a fake Router |
+| Off-chain EIP-191 verification of the provider signature, badge levels, request id on the receipt and on HCS (`INFERENCE`) | done (Claude) |
+| Job page panel: review text, request id, "Verified by 0G TEE" or "Router-checked only" | done (Claude) |
+| `infer` job type in the provider worker, `postAttested` and a contract redeploy | **not needed**: replaced by the off-chain check above (0G signs variable-length text, `postAttested` takes a 32-byte digest). Misbah has no 0G work |
 | iAI sign-in bonus | skip |
 
 ---
@@ -212,7 +213,7 @@ Mesh is a compute marketplace, not a consumer AI app. A bolted-on chat call woul
 
 - [ ] README: setup, architecture, payment flow, **Hedera settled-payment tx ID**, honest limits, third-party code, AI use, partner picks.
 - [ ] Demo video about 2:45, our own voice, at least 720 p, shows: agent pays by x402 (HashScan), provider run, cheat caught and slashed, World approval success and denial, receipt.
-- [ ] `docs/FEEDBACK-world.md` (required), `docs/FEEDBACK-hedera.md`, `docs/OG-STATUS.md` (if 0G).
+- [ ] `docs/FEEDBACK-world.md` (required), `docs/FEEDBACK-hedera.md`, `docs/OG-STATUS.md` (written; add the live spike results).
 - [ ] Contract addresses in README and `.env.example` (already committed).
 - [ ] Team names with Telegram and X handles for the submission form.
 - [ ] Live demo link for the web app (needs a public URL for the API with a persistent disk).
@@ -229,4 +230,4 @@ Mesh is a compute marketplace, not a consumer AI app. A bolted-on chat call woul
 5. Run the agent live once (`npm run agent -- small`) and paste the settled transaction ID and HashScan link into the README.
 6. Push the render image to a shared registry and set `RENDER_IMAGE_REF` / `RENDER_IMAGE_DIGEST` (with Misbah).
 7. Record the demo video, fill the Telegram and X handles, submit.
-8. Optional: tell me if you want **0G** as a stretch, or a third partner pick.
+8. **0G**: create the key and run the spike (docs/OG-STATUS.md). 0G also needs its own demo video under 3 minutes and a live demo link.

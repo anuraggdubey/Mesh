@@ -224,8 +224,9 @@ Because Anurag's laptop is light, you need a second provider that is not him:
 
 ### If we keep 0G (decision pending, TRACKS 4.5)
 
-- [ ] Spike: one Router call with `verify_tee`; capture request ID, provider, the signed `text` and signature; write `docs/OG-STATUS.md`.
-- [ ] `infer` job in the provider worker returning output, request ID and signature.
+- [x] **Not needed any more** (0G was built in the API as an off-chain AI review of the finished render, docs/OG-STATUS.md; nothing for the provider worker). Skip the two 0G items below.
+- [x] ~~Spike: one Router call with `verify_tee`; capture request ID, provider, the signed `text` and signature; write `docs/OG-STATUS.md`.~~
+- [x] ~~`infer` job in the provider worker returning output, request ID and signature.~~
 
 ### Facts you need
 

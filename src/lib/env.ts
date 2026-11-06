@@ -22,6 +22,14 @@ const schema = z.object({
   RECEIPT_ADDRESS: address,
   // HCS audit topic (create it once with `npm run hcs:create-topic`). Empty = no audit log.
   HCS_TOPIC_ID: z.preprocess(blank, z.string().regex(/^0\.0\.[0-9]+$/, "must look like 0.0.1234").optional()),
+  // ── 0G Private Computer (AI review of the finished render). See docs/OG-STATUS.md ──
+  OG_ENABLED: z.preprocess(blank, z.enum(["true", "false"]).default("false")).transform((v) => v === "true"), // automatic review of final jobs
+  OG_API_KEY: z.preprocess(blank, z.string().optional()), // SECRET: sk-... from pc.0g.ai
+  OG_API_BASE_URL: z.preprocess(blank, z.string().url().default("https://router-api-testnet.integratenetwork.work/v1")),
+  OG_MODEL: z.preprocess(blank, z.string().default("claude-haiku-5.5")), // must accept images; check pc.0g.ai/models
+  OG_SIGNER_ADDRESS: z.preprocess(blank, z.string().regex(/^0x[0-9a-fA-F]{40}$/).optional()), // the provider's teeSignerAddress
+  OG_SIGNATURE_BASE_URL: z.preprocess(blank, z.string().url().optional()), // provider URL that serves /v1/proxy/signature/{chatID}
+  OG_TIMEOUT_MS: z.preprocess(blank, z.coerce.number().int().min(1000).max(300000).default(60000)),
   // The address allowed to report verdicts. Empty = read `verifier()` from the receipt contract.
   VERIFIER_ADDRESS: z.preprocess(blank, z.string().regex(/^0x[0-9a-fA-F]{40}$/).optional()),
   STAKE_ADDRESS: address,

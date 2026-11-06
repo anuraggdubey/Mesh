@@ -241,6 +241,7 @@ Everything about what each sponsor requires, the technical facts and the open de
 - [x] Scripted agent (`npm run agent -- small`): x402 payment, budget, per-job cap, preset and payee allowlists, approval flow above the threshold. 14 tests; the real x402 client signs offline.
 - [x] Verifier endpoint `POST /api/verifier/verdict` (signed by the verifier key), slash and refund bookkeeping, chain adoption of a `Rejected` receipt. 13 tests.
 - [x] HCS audit log (`src/lib/hcs.ts`), built from job events, retried, 1 KB guard; `npm run hcs:create-topic`; receipts return topic and sequences. 14 tests (fake submitter; **not yet run against live Hedera**).
+- [x] **0G AI review** of the finished render (`src/lib/og.ts`, `review.ts`, `png.ts`, `/api/jobs/:id/review`, job page panel, HCS `INFERENCE`, receipt field). 27 tests with a fake Router; **needs your 0G key and a live spike** (docs/OG-STATUS.md).
 - [x] IDKit widget page `/provider/verify` (renders; a full scan needs the portal app) and a "Become a provider" link.
 
 ### Only you can do (accounts, keys, funds, decisions)

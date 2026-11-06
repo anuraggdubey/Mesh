@@ -40,6 +40,9 @@ export async function GET(_req: Request, ctx: { params: Promise<{ jobId: string 
     verdict: job.verdict,
     windowEnd: job.windowEnd,
     payment: job.payment ? { ...job.payment, hashscan: hashscanTxUrl(job.payment.transaction, job.payment.network) } : null,
+    inference: job.inference
+      ? { requestId: job.inference.requestId, provider: job.inference.provider, model: job.inference.model, verification: job.inference.verification, teeVerified: job.inference.teeVerified, signer: job.inference.signer, quality: job.inference.output.quality, digest: job.inference.digest }
+      : null,
     hcs: { topicId: getEnv().HCS_TOPIC_ID ?? null, sequences: job.hcsSequence, ...(getEnv().HCS_TOPIC_ID ? { hashscan: hashscanTopicUrl(getEnv().HCS_TOPIC_ID as string) } : {}) },
     transactions: { lock: job.lockTx, claim: job.claimTx, finalize: job.finalTx, release: job.releaseTx, refund: job.refundTx },
     onChain,

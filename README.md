@@ -12,7 +12,7 @@ Built from scratch at **ETHGlobal Mumbai 2026** by Misbah Ansari and Anurag.
 2. The job (for example a tiled render) is split into tiles and run by one or more providers inside Docker.
 3. Each provider signs a claim over its tile hashes. The API commits a **Merkle root** of all tiles on chain, which opens a short **challenge window**.
 4. A verifier recomputes a random, seeded sample of tiles. If a tile is wrong it submits a **fraud proof**: the provider is **slashed**, the requester is **refunded**. If nothing is wrong, the receipt becomes **final** and the provider is paid.
-5. AI-inference jobs can't be re-run, so they carry a **0G Private Computer TEE signature** that the contract verifies on chain.
+5. When a render is final, a vision model on **0G Private Computer** reviews the finished image. The job page shows the review with its 0G **request id** and a badge for how it was verified (TEE signature checked here, or only checked by the Router). Without 0G the render, payment and receipt still work, but there is no independent, traceable check of the finished image. See [docs/OG-STATUS.md](docs/OG-STATUS.md).
 6. **World ID** keeps it to one provider profile per human. Every state change is also written to a **Hedera Consensus Service** audit log.
 
 Design details: [MESH-IMPLEMENTATION-PLAN.md](MESH-IMPLEMENTATION-PLAN.md). Exact formats and interfaces: [docs/job-spec.md](docs/job-spec.md).
@@ -31,7 +31,7 @@ Design details: [MESH-IMPLEMENTATION-PLAN.md](MESH-IMPLEMENTATION-PLAN.md). Exac
 | x402 payment on `POST /api/jobs` (Hedera), scripted agent with spending controls | Done and tested against a fake facilitator (replay, mismatch, denied and timeout paths). The first live settlement needs funded accounts |
 | Verifier verdict endpoint, slash and refund bookkeeping | Done (signed by the verifier key). The real verifier worker is on Misbah's branch |
 | HCS audit log | Done and tested with a fake submitter; needs `npm run hcs:create-topic` for a live run |
-| 0G inference job | Not started |
+| 0G AI review of the finished render (request id, TEE verification, HCS record) | Built and tested against a fake 0G Router (27 tests). Not run against the real Router: needs an API key ([docs/OG-STATUS.md](docs/OG-STATUS.md)) |
 
 ## Deployed contracts (Hedera testnet, chain ID 296)
 
@@ -102,7 +102,7 @@ docs/            job-spec, DEPLOY, and later QA, DEMO, 0G status, sponsor feedba
 
 ## Prize tracks
 
-Hedera (x402), World (Agent Pass + IDKit, one pick), and 0G (decision pending). Requirements, technical facts, decisions and owners: [docs/TRACKS.md](docs/TRACKS.md). World integration debrief: [docs/FEEDBACK-world.md](docs/FEEDBACK-world.md).
+Hedera (x402), World (Agent Pass + IDKit, one pick), and 0G (AI review of the finished render, built; needs a live key). Requirements, technical facts, decisions and owners: [docs/TRACKS.md](docs/TRACKS.md). World integration debrief: [docs/FEEDBACK-world.md](docs/FEEDBACK-world.md).
 
 ## Team and task lists
 
@@ -117,7 +117,7 @@ Hedera (x402), World (Agent Pass + IDKit, one pick), and 0G (decision pending). 
 - The API attributes tiles to providers (the owner address is inside each Merkle leaf). Provider signatures are published to the audit log, not checked on chain.
 - The verifier key supplies the "expected" tile hash in a fraud proof.
 - A provider can see the job inputs. Docker is not a hard security boundary.
-- A 0G TEE signature proves the output came from the TEE, not which prompt produced it.
+- A 0G TEE signature proves the output came from the TEE, not which prompt produced it. The AI review is advisory: it never decides payment, slashing or finalization, and it can be wrong.
 - World ID sandbox proofs use fake identities and are not production Sybil resistance.
 
 More in sections 1.2 and 3.7 of the implementation plan.

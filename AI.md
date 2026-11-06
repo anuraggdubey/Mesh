@@ -17,5 +17,6 @@ ETHGlobal requires documenting where AI tools helped. Keep this file current: ad
 | 2026-11-06 | src/lib/x402.ts, agent.ts, verifier.ts, hcs.ts, fake-facilitator.ts, fake-idp.ts, routes (jobs, verifier, receipts), scripts (agent, create-topic), components/world-verify.tsx, /provider/verify, tests, docs updates | Claude Code | Built x402 on Hedera, the scripted agent with spending controls, the verifier verdict endpoint, the HCS audit log and the IDKit widget page, with about 80 new tests | Team to review |
 
 | 2026-11-06 | workers/verifier (render sampling, Docker recomputation, chain settlement, signed API verdict reporting) | Codex | Implemented the verifier worker and deterministic sampling/verdict-signing tests | Team to review |
+| 2026-11-06 | src/lib/og.ts, review.ts, png.ts, fake-og.ts, review route, components/ai-review.tsx, hcs/receipt/reducer changes, docs/OG-STATUS.md, tests | Claude Code | Built the 0G Private Computer AI review (router client, PNG of the finished render, off-chain signature verification, HCS INFERENCE record, job page panel) with 29 tests against a fake Router | Team to review; needs a live 0G key to confirm the Router response shape |
 
 Spec files used in AI-assisted workflows live in this repo (the plan and the two task files).

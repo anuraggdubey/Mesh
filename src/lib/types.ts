@@ -28,6 +28,23 @@ export interface Tile {
   tileHash: string | null;
 }
 
+/** An AI review of the finished render, made on 0G Private Computer (docs/OG-STATUS.md). */
+export interface InferenceRecord {
+  requestId: string; // x_0g_trace.request_id
+  provider: string | null; // x_0g_trace.provider (the 0G provider's on-chain address)
+  model: string;
+  teeVerified: boolean | null; // x_0g_trace.tee_verified (the Router's own check; null if the Router did not say)
+  /** tee-signature: the provider's EIP-191 signature over the signed text was verified here. router-checked: only the Router says so. unverified: neither. */
+  verification: "tee-signature" | "router-checked" | "unverified";
+  signer: string | null; // the TEE signer address the signature was checked against
+  signatureVerified: boolean | null; // null = no signature was fetched
+  textBound: boolean | null; // the signed text refers to this response
+  digest: string; // sha256 of the signed text (or of the response text when no signature was fetched)
+  output: { description: string; quality: "good" | "suspicious" | "poor" | "unknown"; notes: string | null };
+  imageSha256: string; // the PNG the model was shown
+  reviewedAt: number;
+}
+
 export interface SampleInfo {
   beacon: string;
   seed: string;
@@ -70,7 +87,7 @@ export interface Job {
   hcsSequence: number[];
   sample: SampleInfo | null;
   verdict: "ok" | "fraud" | null;
-  inference: { requestId: string; signer: string; digest: string } | null;
+  inference: InferenceRecord | null;
 }
 
 export const jobStatusSchema = z.enum(JOB_STATUSES);

@@ -1,4 +1,5 @@
 import { flushHcs } from "./hcs";
+import { autoReview } from "./review";
 import { chainLoopConfigured, chainNow, escrowStatus, finalizeOnChain, lockEscrowOnChain, postClaimOnChain, refundOnChain } from "./chain";
 import { getDb } from "./db";
 import { getEnv } from "./env";
@@ -161,6 +162,8 @@ export function startChainLoop(): boolean {
       try {
         const r = await chainTick();
         for (const e of r.errors) console.warn(`[mesh] chain ${e.step} failed for ${e.jobId.slice(0, 10)}: ${e.message}`);
+        const rv = await autoReview(); // 0G AI review of newly final jobs (a no-op unless OG_ENABLED)
+        for (const e of rv.errors) console.warn(`[mesh] 0G review failed for ${e.jobId.slice(0, 10)}: ${e.message}`);
         const h = await flushHcs(); // mirror new job events to the HCS audit topic (a no-op without HCS_TOPIC_ID)
         if (h.error) console.warn(`[mesh] HCS publish failed: ${h.error}`);
       } catch (e) {

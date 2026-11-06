@@ -183,7 +183,7 @@ export function JobView({ jobId }: { jobId: string }) {
         </section>
 
         <aside className="space-y-5">
-          <section className="rounded-lg border border-zinc-400/30 p-4">
+          <section className="card p-5">
             <h2 className="mb-3 text-sm font-semibold">Providers</h2>
             {state.providers.length === 0 ? (
               <p className="text-sm text-zinc-500">{awaitingPayment ? "Not assigned yet." : "Waiting for an online provider…"}</p>
@@ -204,7 +204,7 @@ export function JobView({ jobId }: { jobId: string }) {
             )}
           </section>
 
-          <section className="rounded-lg border border-zinc-400/30 p-4">
+          <section className="card p-5">
             <h2 className="mb-3 text-sm font-semibold">Verification</h2>
             <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
               <dt className="text-zinc-500">Price</dt>
@@ -276,7 +276,7 @@ export function JobView({ jobId }: { jobId: string }) {
 
           <AiReview jobId={job.jobId} final={state.status === "final"} initial={job.inference} />
 
-          <section className="rounded-lg border border-zinc-400/30 p-4">
+          <section className="card p-5">
             <h2 className="mb-3 text-sm font-semibold">Activity</h2>
             {state.log.length === 0 ? (
               <p className="text-sm text-zinc-500">No events yet.</p>

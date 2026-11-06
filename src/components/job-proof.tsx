@@ -33,7 +33,7 @@ export function JobProof({ state }: { state: JobViewState }) {
   const seqs = state.hcsSequence;
 
   return (
-    <section className="rounded-lg border border-zinc-400/30 p-4" aria-label="Proof and receipt">
+    <section className="card p-5" aria-label="Proof and receipt">
       <h2 className="mb-3 text-sm font-semibold">Proof and receipt</h2>
       <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
         <dt className="text-zinc-500">Payment</dt>
@@ -69,7 +69,7 @@ export function JobProof({ state }: { state: JobViewState }) {
         <dt className="text-zinc-500">Verdict</dt>
         <dd>
           {state.verdict === "ok" ? (
-            <span className="text-emerald-400">all sampled tiles match</span>
+            <span className="text-emerald-600">all sampled tiles match</span>
           ) : state.verdict === "fraud" ? (
             <span className="text-danger">fraud proven</span>
           ) : (

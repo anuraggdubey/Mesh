@@ -52,7 +52,7 @@ export function TileImage({
               key={i}
               data-tile={i}
               data-status={status}
-              className={flagged.includes(i) ? "bg-red-500/30" : status === "uploaded" ? "" : status === "assigned" ? "animate-pulse bg-white/10" : "bg-black/60"}
+              className={flagged.includes(i) ? "bg-red-500/30" : status === "uploaded" ? "" : status === "assigned" ? "animate-pulse bg-white/15" : "bg-black/60"}
               style={{ boxShadow: flagged.includes(i) ? "inset 0 0 0 3px #ff6b5b" : `inset 0 0 0 1px ${status === "uploaded" ? `${color}55` : "rgba(255,255,255,0.08)"}` }}
             />
           );

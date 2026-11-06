@@ -164,7 +164,7 @@ export function ApproveSpend({ approvalId }: { approvalId: string }) {
       </div>
 
       {(phase.name === "failed" || phase.name === "unavailable") && (
-        <p role="alert" className={`text-sm ${phase.name === "failed" ? "text-danger" : "text-amber-400"}`}>
+        <p role="alert" className={`text-sm ${phase.name === "failed" ? "text-danger" : "text-amber-600"}`}>
           {phase.message}
         </p>
       )}

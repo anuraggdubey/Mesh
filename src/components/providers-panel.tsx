@@ -43,7 +43,7 @@ export function ProvidersPanel() {
   const online = providers?.filter((p) => p.online) ?? [];
 
   return (
-    <section className="rounded-lg border border-zinc-400/30 p-4" aria-label="Providers">
+    <section className="card p-5" aria-label="Providers">
       <h2 className="mb-1 text-sm font-semibold">Providers</h2>
       <p className="mb-3 text-xs text-zinc-500">
         {providers === null ? "Loading…" : `${online.length} online, ${providers.length} registered`}

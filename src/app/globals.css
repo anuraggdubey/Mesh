@@ -1,19 +1,30 @@
 @import "tailwindcss";
 
-/* The whole site is dark: the app components already carry `dark:` variants, so switch them on with a class. */
+/*
+ * Visual language: a warm, light, soft-card interface. Warm off-white page, white cards with hairline ring shadows, one blue accent,
+ * Sora for headings and DM Sans for text. All colors are tokens, so a page restyles by changing these values.
+ */
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --background: #07080b;
-  --foreground: #e8eaee;
-  --surface: #0e1016;
-  --surface-2: #141721;
-  --line: rgb(255 255 255 / 0.08);
-  --muted: #8b909c;
-  --accent: #c6f432;
-  --accent-ink: #0b0d12;
-  --danger: #ff6b5b;
-  color-scheme: dark;
+  --background: #faf8f5;
+  --foreground: #1c1917;
+  --surface: #ffffff;
+  --surface-2: #f5f3f0;
+  --line: #e7e5e0;
+  --muted: #78716c;
+  --accent: #5b8def;
+  --accent-ink: #ffffff;
+  --accent-muted: #5b8def14;
+  --accent-subtle: #5b8def24;
+  --danger: #dc4b4b;
+  --radius: 1rem;
+  --shadow-border: 0 0 0 1px #0000000f, 0 1px 2px -1px #0000000f, 0 2px 4px 0 #0000000a;
+  --shadow-border-hover: 0 0 0 1px #00000014, 0 1px 2px -1px #00000014, 0 2px 4px 0 #0000000f;
+  --shadow-soft: 0 4px 24px -4px #1c19170f;
+  --shadow-elevated: 0 8px 40px -8px #1c19171a;
+  --shadow-accent: 0 0 0 1px #5b8def38, 0 4px 16px -4px #5b8def47;
+  color-scheme: light;
 }
 
 @theme inline {
@@ -25,10 +36,12 @@
   --color-muted: var(--muted);
   --color-accent: var(--accent);
   --color-accent-ink: var(--accent-ink);
+  --color-accent-muted: var(--accent-muted);
+  --color-accent-subtle: var(--accent-subtle);
   --color-danger: var(--danger);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-dm-sans);
   --font-mono: var(--font-geist-mono);
-  --font-serif: var(--font-serif-display);
+  --font-display: var(--font-sora);
 }
 
 html {
@@ -38,27 +51,91 @@ html {
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-sans), system-ui, sans-serif;
+  font-family: var(--font-dm-sans), system-ui, sans-serif;
+}
+
+h1, h2, h3, .font-display {
+  font-family: var(--font-sora), var(--font-dm-sans), system-ui, sans-serif;
 }
 
 ::selection {
+  background: var(--accent-subtle);
+}
+
+/* Reusable pieces */
+.card {
+  background: var(--surface);
+  border-radius: 1.5rem;
+  box-shadow: var(--shadow-border), var(--shadow-soft);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+.card:hover {
+  box-shadow: var(--shadow-border-hover), var(--shadow-elevated);
+}
+.btn-primary {
+  display: inline-flex;
+  height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
   background: var(--accent);
+  padding: 0 1.5rem;
+  font-weight: 500;
   color: var(--accent-ink);
+  box-shadow: var(--shadow-accent);
+  transition: filter 0.15s ease, transform 0.15s ease;
+}
+.btn-primary:hover {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+}
+.btn-secondary {
+  display: inline-flex;
+  height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  border: 1px solid var(--line);
+  background: transparent;
+  padding: 0 1.5rem;
+  font-weight: 500;
+  color: var(--foreground);
+  box-shadow: var(--shadow-border);
+  transition: background 0.15s ease;
+}
+.btn-secondary:hover {
+  background: var(--surface);
+}
+.eyebrow {
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.icon-tile {
+  display: grid;
+  height: 2.5rem;
+  width: 2.5rem;
+  place-items: center;
+  border-radius: 0.75rem;
+  background: var(--accent-muted);
+  color: var(--accent);
 }
 
 /* Hero: 64 tiles fill in, a few turn out to be tampered with, then the verifier catches them. One 14 s loop, CSS only. */
 @keyframes tile-fill {
-  0% { opacity: 0.08; transform: scale(0.85); }
+  0% { opacity: 0.1; transform: scale(0.85); }
   6% { opacity: 1; transform: scale(1); }
   100% { opacity: 1; transform: scale(1); }
 }
 @keyframes tile-fill-bad {
-  0% { opacity: 0.08; transform: scale(0.85); background: var(--tile); }
+  0% { opacity: 0.1; transform: scale(0.85); background: var(--tile); }
   6% { opacity: 1; transform: scale(1); background: var(--tile); }
   58% { background: var(--tile); box-shadow: none; }
-  66% { background: var(--danger); box-shadow: 0 0 18px var(--danger); }
-  92% { background: var(--danger); box-shadow: 0 0 18px var(--danger); opacity: 1; }
-  100% { opacity: 0.08; }
+  66% { background: var(--danger); box-shadow: 0 0 18px #dc4b4b88; }
+  92% { background: var(--danger); box-shadow: 0 0 18px #dc4b4b88; opacity: 1; }
+  100% { opacity: 0.1; }
 }
 @keyframes verdict-in {
   0%, 62% { opacity: 0; transform: translateY(12px) scale(0.97); }
@@ -103,18 +180,18 @@ body {
 }
 
 /* Long-form docs text */
-.prose-mesh h2 { font-size: 1.5rem; line-height: 2rem; font-weight: 600; letter-spacing: -0.02em; margin-top: 3rem; margin-bottom: 0.75rem; scroll-margin-top: 6rem; }
-.prose-mesh h3 { font-size: 1.1rem; font-weight: 600; margin-top: 2rem; margin-bottom: 0.5rem; scroll-margin-top: 6rem; }
-.prose-mesh p { color: #b5b9c4; line-height: 1.75; margin: 0.9rem 0; }
-.prose-mesh ul, .prose-mesh ol { color: #b5b9c4; line-height: 1.75; margin: 0.9rem 0; padding-left: 1.25rem; }
+.prose-mesh h2 { font-size: 1.5rem; line-height: 2rem; font-weight: 500; letter-spacing: -0.02em; margin-top: 3rem; margin-bottom: 0.75rem; scroll-margin-top: 6rem; }
+.prose-mesh h3 { font-size: 1.1rem; font-weight: 500; margin-top: 2rem; margin-bottom: 0.5rem; scroll-margin-top: 6rem; }
+.prose-mesh p { color: #57534e; line-height: 1.75; margin: 0.9rem 0; }
+.prose-mesh ul, .prose-mesh ol { color: #57534e; line-height: 1.75; margin: 0.9rem 0; padding-left: 1.25rem; }
 .prose-mesh ul { list-style: disc; }
 .prose-mesh ol { list-style: decimal; }
 .prose-mesh li { margin: 0.35rem 0; }
 .prose-mesh a { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
-.prose-mesh strong { color: #f3f4f6; font-weight: 600; }
-.prose-mesh code { font-family: var(--font-mono); font-size: 0.85em; background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px; padding: 0.1rem 0.4rem; color: #e8eaee; }
-.prose-mesh pre { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 1rem 1.25rem; overflow-x: auto; margin: 1.1rem 0; font-size: 0.85rem; line-height: 1.7; }
+.prose-mesh strong { color: var(--foreground); font-weight: 600; }
+.prose-mesh code { font-family: var(--font-geist-mono), monospace; font-size: 0.85em; background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px; padding: 0.1rem 0.4rem; color: var(--foreground); }
+.prose-mesh pre { background: var(--surface); border-radius: 1rem; box-shadow: var(--shadow-border), var(--shadow-soft); padding: 1rem 1.25rem; overflow-x: auto; margin: 1.1rem 0; font-size: 0.85rem; line-height: 1.7; }
 .prose-mesh pre code { background: none; border: 0; padding: 0; }
 .prose-mesh table { width: 100%; border-collapse: collapse; margin: 1.2rem 0; font-size: 0.9rem; }
 .prose-mesh th { text-align: left; color: var(--muted); font-weight: 500; padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--line); }
-.prose-mesh td { color: #b5b9c4; padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+.prose-mesh td { color: #57534e; padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--line); vertical-align: top; }

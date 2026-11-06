@@ -47,7 +47,7 @@ export function AiReview({ jobId, final, initial }: { jobId: string; final: bool
   if (!final && stage.name === "idle") return null;
 
   return (
-    <section className="rounded-lg border border-zinc-400/30 p-4" aria-label="AI review on 0G">
+    <section className="card p-5" aria-label="AI review on 0G">
       <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
         AI review <span className="rounded bg-zinc-500/15 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide">0G Private Computer</span>
       </h2>
@@ -67,7 +67,7 @@ export function AiReview({ jobId, final, initial }: { jobId: string; final: bool
         </div>
       )}
       {stage.name === "idle" && (
-        <button type="button" onClick={run} className="rounded-md bg-sky-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-sky-500">
+        <button type="button" onClick={run} className="rounded-full bg-accent shadow-[var(--shadow-accent)] px-3 py-1.5 text-sm font-medium text-white hover:brightness-110">
           Run AI review on 0G
         </button>
       )}

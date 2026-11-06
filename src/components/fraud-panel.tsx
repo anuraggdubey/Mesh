@@ -36,7 +36,7 @@ export function FraudPanel({ state }: { state: JobViewState }) {
   ];
 
   return (
-    <section aria-label="Cheat caught" className="overflow-hidden rounded-2xl border border-danger/50 bg-[#180d0e]">
+    <section aria-label="Cheat caught" className="overflow-hidden rounded-2xl border border-danger/50 bg-[#fff6f5]">
       <div className="flex items-center gap-3 border-b border-danger/30 px-5 py-3">
         <span className="h-2 w-2 rounded-full bg-danger shadow-[0_0_10px_var(--danger)]" />
         <h2 className="text-sm font-semibold uppercase tracking-widest text-danger">Cheat caught</h2>
@@ -54,7 +54,7 @@ export function FraudPanel({ state }: { state: JobViewState }) {
                 </a>
               </dd>
               <dt className="text-muted">Verifier computed</dt>
-              <dd className="font-mono text-xs text-emerald-400" title={f.expectedTileHash}>
+              <dd className="font-mono text-xs text-emerald-600" title={f.expectedTileHash}>
                 {shortHash(f.expectedTileHash, 20)}
               </dd>
               <dt className="text-muted">Provider claimed</dt>
@@ -72,7 +72,7 @@ export function FraudPanel({ state }: { state: JobViewState }) {
         <ol className="space-y-3">
           {steps.map((s, i) => (
             <li key={s.title} className="flex gap-3">
-              <span className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full text-[11px] font-semibold ${s.done ? "bg-danger text-black" : "border border-line text-muted"}`}>{i + 1}</span>
+              <span className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full text-[11px] font-semibold ${s.done ? "bg-danger text-white" : "border border-line text-muted"}`}>{i + 1}</span>
               <div className="text-sm">
                 <p className={s.done ? "font-medium" : "font-medium text-muted"}>{s.title}</p>
                 <p className="mt-0.5 text-xs leading-relaxed text-muted">{s.body}</p>

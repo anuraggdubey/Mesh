@@ -8,7 +8,7 @@ const COLS = [
       { href: "/app", label: "Run a job" },
       { href: "/provider/verify", label: "Become a provider" },
       { href: "/#how", label: "How it works" },
-      { href: "/#proof", label: "The proof" },
+      { href: "/#benefits", label: "Benefits" },
     ],
   },
   {
@@ -43,23 +43,26 @@ const COLS = [
 export function SiteFooter() {
   return (
     <footer className="mt-24 border-t border-line">
-      <div className="mx-auto grid max-w-6xl gap-10 px-5 py-14 md:grid-cols-[1.4fr_repeat(4,1fr)]">
+      <div className="mx-auto grid max-w-6xl gap-10 px-5 py-14 md:grid-cols-[1.5fr_repeat(4,1fr)]">
         <div>
-          <Link href="/" className="flex items-center gap-2 text-lg font-semibold tracking-tight">
-            <Logo />
-            Mesh
+          <Link href="/" className="flex items-center gap-3">
+            <Logo tile />
+            <span>
+              <span className="block font-display text-base font-medium leading-tight">Mesh</span>
+              <span className="block text-xs text-muted">Verifiable spare compute</span>
+            </span>
           </Link>
-          <p className="mt-3 max-w-xs text-sm leading-relaxed text-muted">
-            Verifiable spare compute. Split a job across machines, spot-check the work, slash a lie, keep the receipt on Hedera.
+          <p className="mt-4 max-w-xs text-sm leading-relaxed text-muted">
+            Split a job across machines, spot-check the work, slash a lie, and keep the receipt on Hedera.
           </p>
         </div>
         {COLS.map((c) => (
           <div key={c.title}>
-            <h3 className="text-xs font-semibold uppercase tracking-widest text-muted">{c.title}</h3>
+            <h3 className="font-display text-sm font-medium">{c.title}</h3>
             <ul className="mt-4 space-y-2.5">
               {c.links.map((l) => (
                 <li key={l.label}>
-                  <Link href={l.href} className="text-sm text-foreground/80 transition hover:text-accent" {...(l.href.startsWith("http") ? { target: "_blank", rel: "noreferrer" } : {})}>
+                  <Link href={l.href} className="text-sm text-muted transition hover:text-foreground" {...(l.href.startsWith("http") ? { target: "_blank", rel: "noreferrer" } : {})}>
                     {l.label}
                   </Link>
                 </li>

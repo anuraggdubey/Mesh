@@ -55,7 +55,7 @@ export function WorldVerify() {
   const done = stage.name === "done" ? stage.proof : null;
 
   return (
-    <div className="space-y-5 rounded-lg border border-zinc-400/30 p-5">
+    <div className="space-y-5 card p-6">
       {stage.name !== "done" && (
         <>
           <p className="text-sm text-zinc-600 dark:text-zinc-300">
@@ -65,7 +65,7 @@ export function WorldVerify() {
             type="button"
             onClick={start}
             disabled={stage.name === "loading" || stage.name === "open"}
-            className="rounded-md bg-sky-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-sky-500 disabled:opacity-60"
+            className="rounded-full bg-accent shadow-[var(--shadow-accent)] px-4 py-2 text-sm font-medium text-white transition hover:brightness-110 disabled:opacity-60"
           >
             {stage.name === "loading" ? "Preparing…" : "Verify with World ID"}
           </button>
@@ -102,12 +102,12 @@ export function WorldVerify() {
 
       {done && (
         <div className="space-y-3">
-          <p role="status" className="text-sm font-medium text-emerald-700 dark:text-emerald-400">
+          <p role="status" className="text-sm font-medium text-emerald-700">
             Verified. Give this to the provider worker as PROVIDER_WORLD_PROOF, then start it.
           </p>
           <textarea readOnly value={done} rows={6} aria-label="World ID proof" className="w-full rounded-md border border-zinc-400/40 bg-transparent p-2 font-mono text-xs" onFocus={(e) => e.currentTarget.select()} />
           <div className="flex gap-3">
-            <button type="button" onClick={() => copy(done)} className="rounded-md bg-sky-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-sky-500">
+            <button type="button" onClick={() => copy(done)} className="rounded-full bg-accent shadow-[var(--shadow-accent)] px-3 py-1.5 text-sm font-medium text-white hover:brightness-110">
               {copied ? "Copied" : "Copy proof"}
             </button>
             <button type="button" onClick={() => setStage({ name: "idle" })} className="rounded-md border border-zinc-400/40 px-3 py-1.5 text-sm hover:border-zinc-400/70">

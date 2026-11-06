@@ -30,7 +30,7 @@ export function DocsNav() {
                   <Link
                     href={p.href}
                     aria-current={active ? "page" : undefined}
-                    className={`block rounded-lg px-3 py-1.5 text-sm transition ${active ? "bg-accent/10 font-medium text-accent" : "text-muted hover:bg-white/5 hover:text-foreground"}`}
+                    className={`block rounded-lg px-3 py-1.5 text-sm transition ${active ? "bg-accent/10 font-medium text-accent" : "text-muted hover:bg-surface-2 hover:text-foreground"}`}
                   >
                     {p.title}
                   </Link>
@@ -52,7 +52,7 @@ export function DocsPager({ href }: { href: string }) {
   return (
     <div className="mt-16 grid gap-3 border-t border-line pt-8 sm:grid-cols-2">
       {prev ? (
-        <Link href={prev.href} className="rounded-2xl border border-line p-4 transition hover:border-white/25">
+        <Link href={prev.href} className="rounded-2xl border border-line p-4 transition hover:border-accent/40">
           <span className="text-xs text-muted">Previous</span>
           <span className="mt-1 block text-sm font-medium">{prev.title}</span>
         </Link>
@@ -60,7 +60,7 @@ export function DocsPager({ href }: { href: string }) {
         <span />
       )}
       {next && (
-        <Link href={next.href} className="rounded-2xl border border-line p-4 text-right transition hover:border-white/25">
+        <Link href={next.href} className="rounded-2xl border border-line p-4 text-right transition hover:border-accent/40">
           <span className="text-xs text-muted">Next</span>
           <span className="mt-1 block text-sm font-medium">{next.title}</span>
         </Link>

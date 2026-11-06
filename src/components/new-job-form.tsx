@@ -73,7 +73,7 @@ export function NewJobForm() {
   }
 
   return (
-    <form onSubmit={submit} className="space-y-5 rounded-lg border border-zinc-400/30 p-5" noValidate>
+    <form onSubmit={submit} className="space-y-5 card p-6" noValidate>
       <fieldset>
         <legend className="mb-2 text-sm font-semibold">Render size</legend>
         <div className="grid gap-2 sm:grid-cols-3">
@@ -81,7 +81,7 @@ export function NewJobForm() {
             <label
               key={p}
               className={`cursor-pointer rounded-md border p-3 text-sm transition ${
-                preset === p ? "border-sky-500 bg-sky-500/10" : "border-zinc-400/30 hover:border-zinc-400/60"
+                preset === p ? "border-accent bg-accent-muted" : "border-zinc-400/30 hover:border-zinc-400/60"
               }`}
             >
               <input type="radio" name="preset" value={p} checked={preset === p} onChange={() => setPreset(p)} className="sr-only" />
@@ -121,7 +121,7 @@ export function NewJobForm() {
       <button
         type="submit"
         disabled={busy}
-        className="rounded-md bg-sky-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-sky-500 disabled:opacity-60"
+        className="rounded-full bg-accent shadow-[var(--shadow-accent)] px-4 py-2 text-sm font-medium text-white transition hover:brightness-110 disabled:opacity-60"
       >
         {busy ? "Creating…" : "Run job"}
       </button>

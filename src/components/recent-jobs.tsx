@@ -26,7 +26,7 @@ export function RecentJobs() {
   }, []);
 
   return (
-    <section className="rounded-lg border border-zinc-400/30 p-4" aria-label="Recent jobs">
+    <section className="card p-5" aria-label="Recent jobs">
       <h2 className="mb-3 text-sm font-semibold">Recent jobs</h2>
       {jobs === null && <p className="text-sm text-zinc-500">Loading…</p>}
       {jobs?.length === 0 && <p className="text-sm text-zinc-500">No jobs yet.</p>}

@@ -25,6 +25,8 @@ if (args[0] === "image" && args[1] === "inspect") {
   process.stdout.write(JSON.stringify(["ghcr.io/mesh/echo@${reportDigest}"]));
   process.exit(0);
 }
+  const platform = args[args.indexOf("--platform") + 1];
+  if (platform !== "linux/amd64") process.exit(7);
 if (args[0] === "run") {
   if (!args.includes("none") || !args.includes("linux/amd64") || !args.includes("--read-only")) process.exit(4);
   const mount = args.find((arg) => arg.includes("target=/output"));
@@ -87,7 +89,12 @@ describe.skipIf(process.platform === "win32")("provider Docker runner", () => {
     expect(result[0].bytes.toString()).toBe("tile bytes");
     expect(log).toContain("--network none");
     expect(log).toContain("--platform linux/amd64");
+    expect(log.match(/--platform linux\/amd64/g)).toHaveLength(2);
+    expect(log).toContain("pull --platform linux/amd64");
     expect(log).toContain("--read-only");
+    expect(log).toContain("--user 65532:65532");
+    expect(log).toContain("--cap-drop ALL");
+    expect(log).toContain("--security-opt no-new-privileges:true");
   });
 
   it("refuses an input whose canonical job hash differs", async () => {

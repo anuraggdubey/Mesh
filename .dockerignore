@@ -1,0 +1,9 @@
+.git
+.env
+.env.*
+!.env.example
+.agent-secrets
+.next
+node_modules
+data
+*.log

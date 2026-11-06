@@ -127,6 +127,7 @@ describe("POST /api/verifier/verdict", () => {
       expect(r.status).toBe(200);
       expect(r.body).toMatchObject({ status: "refunded", verdict: "fraud" });
       expect(getJob(id)).toMatchObject({ fraudTx: TX_A, slashTx: TX_A, refundTx: TX_A });
+      expect(getJob(id)?.fraud).toMatchObject({ tileIndex: 17, owner: TEST_REQUESTER });
       const events = listEvents(id);
       expect(events.find((e) => e.type === "verdict")?.data).toMatchObject({ result: "fraud", tileIndex: 17, owner: TEST_REQUESTER });
       expect(events.filter((e) => e.type === "settlement").map((e) => (e.data as { kind: string }).kind)).toEqual(["slashed", "refunded"]);

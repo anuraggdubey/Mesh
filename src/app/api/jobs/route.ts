@@ -93,7 +93,10 @@ async function devPaidFlow(req: Request, data: CreateJobBody): Promise<Response>
   let job;
   try {
     job = insertJob(buildJob(data));
-    if (gate.approvalId) appendEvent(job.jobId, "approval", { approvalId: gate.approvalId });
+    if (gate.approvalId) {
+      appendEvent(job.jobId, "approval", { approvalId: gate.approvalId });
+      updateJob(job.jobId, { approvalId: gate.approvalId });
+    }
   } catch (err) {
     if (err instanceof UnsupportedJobTypeError) return jsonError(501, "unsupported_job_type", err.message);
     throw err;
@@ -146,7 +149,10 @@ async function x402Flow(req: Request, data: CreateJobBody): Promise<Response> {
       attachPaymentToJob(key, job.jobId);
       updateJob(job.jobId, { payment: { network: settle.network, asset: quote.asset, amount: quote.amount, payer: settle.payer ?? payer, transaction: settle.transaction } });
       appendEvent(job.jobId, "payment", { transaction: settle.transaction, network: settle.network, asset: quote.asset, amount: quote.amount, payer: settle.payer ?? payer });
-      if (gate.approvalId) appendEvent(job.jobId, "approval", { approvalId: gate.approvalId });
+      if (gate.approvalId) {
+        appendEvent(job.jobId, "approval", { approvalId: gate.approvalId });
+        updateJob(job.jobId, { approvalId: gate.approvalId });
+      }
       transitionJob(job.jobId, "paid");
     } catch (err) {
       // the payment settled but the job could not be stored: report the transaction so it can be refunded by hand

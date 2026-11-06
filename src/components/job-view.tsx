@@ -8,11 +8,13 @@ import { formatDuration, formatToken, hashscan, shortAddr, shortHash } from "@/l
 import { buildTimeline, initialViewState, ownerTileCounts, reduceJobView, renderGeometry } from "@/lib/ui/job-view";
 import type { Job } from "@/lib/types";
 import { AiReview } from "./ai-review";
+import { FraudPanel } from "./fraud-panel";
+import { JobProof } from "./job-proof";
 import { StatusBadge } from "./status-badge";
 import { StatusTimeline } from "./status-timeline";
 import { PROVIDER_COLORS, providerColor, TileImage } from "./tile-image";
 
-const EVENT_NAMES = ["status", "assigned", "tile", "progress", "claim", "chain", "sample", "verdict", "settlement", "inference", "error"];
+const EVENT_NAMES = ["status", "assigned", "tile", "progress", "claim", "chain", "payment", "approval", "sample", "verdict", "settlement", "inference", "error"];
 const isTxHash = (v: string) => /^0x[0-9a-fA-F]{64}$/.test(v);
 
 // A once-per-second clock. The server snapshot is a constant (0) so nothing time-dependent is evaluated during
@@ -136,12 +138,14 @@ export function JobView({ jobId }: { jobId: string }) {
 
       <StatusTimeline steps={steps} />
 
+      <FraudPanel state={state} />
+
       {awaitingPayment && (
         <div role="status" className="rounded-lg border border-sky-500/40 bg-sky-500/10 p-4 text-sm">
           <p className="font-medium">Waiting for payment</p>
           <p className="mt-1 text-zinc-600 dark:text-zinc-300">
-            This job costs <b>{formatToken(job.price)}</b>. It will start as soon as the x402 payment settles on Hedera. The payment step
-            is not built yet, so a job created without the dev switch stays here and expires after a few minutes.
+            This job costs <b>{formatToken(job.price)}</b>. It starts as soon as its x402 payment settles on Hedera. Jobs are paid by an agent or client that can sign a
+            Hedera payment (<code>npm run agent</code>), so a job that was never paid expires after a few minutes.
           </p>
         </div>
       )}
@@ -163,6 +167,7 @@ export function JobView({ jobId }: { jobId: string }) {
             gridRows={geo.gridRows}
             tiles={state.tiles}
             providers={state.providers}
+            flagged={state.fraud ? [state.fraud.tileIndex] : []}
           />
           <div className="mt-3">
             <div className="mb-1 flex justify-between text-xs text-zinc-500">
@@ -246,7 +251,7 @@ export function JobView({ jobId }: { jobId: string }) {
                 <>
                   <dt className="text-zinc-500">Settlement</dt>
                   <dd>
-                    {state.settlement === "released" ? "providers paid" : "refunded to requester"}
+                    {state.settlement === "released" ? "providers paid" : state.settlement === "slashed" ? "provider slashed" : "refunded to requester"}
                     {state.finalTx && isTxHash(state.finalTx) && (
                       <>
                         {" · "}
@@ -266,6 +271,8 @@ export function JobView({ jobId }: { jobId: string }) {
               )}
             </dl>
           </section>
+
+          <JobProof state={state} />
 
           <AiReview jobId={job.jobId} final={state.status === "final"} initial={job.inference} />
 

@@ -108,3 +108,5 @@ desktop.ini
 /_*.ts
 *.bak
 .env.railway
+/.next-*/
+/data-*/

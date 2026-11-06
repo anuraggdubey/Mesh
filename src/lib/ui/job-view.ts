@@ -28,7 +28,15 @@ export interface JobViewState {
   claimTx: string | null;
   lockTx: string | null;
   finalTx: string | null;
-  settlement: "released" | "refunded" | null;
+  settlement: "released" | "slashed" | "refunded" | null;
+  payment: Job["payment"];
+  approvalId: string | null;
+  sample: Job["sample"];
+  verdict: "ok" | "fraud" | null;
+  fraud: NonNullable<Job["fraud"]> | null;
+  fraudTx: string | null;
+  refundTx: string | null;
+  hcsSequence: number[];
   error: { code: string; message: string } | null;
   lastEventId: number;
   log: LogLine[];
@@ -48,6 +56,14 @@ export const initialViewState: JobViewState = {
   lockTx: null,
   finalTx: null,
   settlement: null,
+  payment: null,
+  approvalId: null,
+  sample: null,
+  verdict: null,
+  fraud: null,
+  fraudTx: null,
+  refundTx: null,
+  hcsSequence: [],
   error: null,
   lastEventId: 0,
   log: [],
@@ -84,7 +100,15 @@ export function reduceJobView(state: JobViewState, action: ViewAction): JobViewS
       lockTx: job.lockTx ?? null,
       finalTx: job.finalTx ?? null,
       windowEnd: job.windowEnd ?? state.windowEnd,
-      settlement: job.status === "final" ? "released" : job.status === "refunded" ? "refunded" : state.settlement,
+      settlement: job.status === "final" ? "released" : job.status === "refunded" ? "refunded" : job.status === "slashed" ? "slashed" : state.settlement,
+      payment: job.payment ?? null,
+      approvalId: job.approvalId ?? null,
+      sample: job.sample ?? null,
+      verdict: job.verdict ?? null,
+      fraud: job.fraud ?? null,
+      fraudTx: job.fraudTx ?? null,
+      refundTx: job.refundTx ?? null,
+      hcsSequence: job.hcsSequence ?? [],
     };
   }
 
@@ -142,10 +166,52 @@ export function reduceJobView(state: JobViewState, action: ViewAction): JobViewS
       break;
     }
     case "settlement": {
-      const kind = d.kind === "refunded" ? "refunded" : "released";
+      const kind = d.kind === "refunded" ? "refunded" : d.kind === "slashed" ? "slashed" : "released";
       next.settlement = kind;
       if (kind === "released") next.finalTx = (d.tx as string) ?? next.finalTx;
-      line(kind === "released" ? "challenge window passed: providers paid from escrow" : "payment refunded to the requester", kind === "released" ? "good" : "info");
+      if (kind === "slashed") next.fraudTx = (d.tx as string) ?? next.fraudTx;
+      if (kind === "refunded") next.refundTx = (d.tx as string) ?? next.refundTx;
+      line(
+        kind === "released" ? "challenge window passed: providers paid from escrow" : kind === "slashed" ? "the cheating provider's stake was slashed" : "payment refunded to the requester",
+        kind === "released" ? "good" : kind === "slashed" ? "bad" : "info",
+      );
+      break;
+    }
+    case "payment": {
+      next.payment = {
+        network: String(d.network ?? ""),
+        asset: String(d.asset ?? ""),
+        amount: String(d.amount ?? ""),
+        payer: (d.payer as string | null) ?? null,
+        transaction: String(d.transaction ?? ""),
+      };
+      line("x402 payment settled on Hedera", "good");
+      break;
+    }
+    case "approval": {
+      next.approvalId = String(d.approvalId ?? "") || null;
+      line("a human approved this job in World", "good");
+      break;
+    }
+    case "sample": {
+      next.sample = { beacon: String(d.beacon ?? ""), seed: String(d.seed ?? ""), k: Number(d.k ?? 0), indices: (d.indices as number[]) ?? [] };
+      line(`verifier sampled ${next.sample.k} tiles to recompute`);
+      break;
+    }
+    case "verdict": {
+      next.verdict = d.result === "fraud" ? "fraud" : "ok";
+      if (d.result === "fraud") {
+        next.fraud = {
+          tileIndex: Number(d.tileIndex),
+          owner: String(d.owner ?? ""),
+          expectedTileHash: String(d.expectedTileHash ?? ""),
+          claimedTileHash: String(d.claimedTileHash ?? ""),
+        };
+        if (d.fraudTx) next.fraudTx = String(d.fraudTx);
+        line(`cheat caught: tile ${next.fraud.tileIndex} does not match the recompute`, "bad");
+      } else {
+        line("verifier recomputed the sample: all tiles match", "good");
+      }
       break;
     }
     case "inference": {

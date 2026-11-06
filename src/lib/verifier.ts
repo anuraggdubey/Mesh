@@ -141,7 +141,7 @@ export async function applyVerdict(raw: unknown): Promise<Job> {
   }
 
   if (!b.fraud) throw new VerdictError(400, "fraud_details_missing", "a fraud verdict needs the fraud payload (tile, owner, expected and claimed hashes)");
-  updateJob(job.jobId, { verdict: "fraud", sample: sample ?? null, ...(b.fraudTx ? { fraudTx: b.fraudTx } : {}) });
+  updateJob(job.jobId, { verdict: "fraud", fraud: { tileIndex: b.fraud.tileIndex, owner: b.fraud.owner, expectedTileHash: b.fraud.expectedTileHash, claimedTileHash: b.fraud.claimedTileHash }, sample: sample ?? null, ...(b.fraudTx ? { fraudTx: b.fraudTx } : {}) });
   transitionJob(job.jobId, "rejected");
   appendEvent(job.jobId, "verdict", { result: "fraud", tileIndex: b.fraud.tileIndex, owner: b.fraud.owner, expectedTileHash: b.fraud.expectedTileHash, claimedTileHash: b.fraud.claimedTileHash, fraudTx: b.fraudTx ?? null });
   await reconcileRejected(job.jobId);

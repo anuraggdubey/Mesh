@@ -4,7 +4,7 @@ import { JobView } from "@/components/job-view";
 import { PageShell } from "@/components/site/page-shell";
 import { jobIdSchema } from "@/lib/types";
 
-export const metadata = { title: "Job · Mesh" };
+export const metadata = { title: "Job" };
 
 // Reading `params` is request-time data, so it sits inside <Suspense> (Cache Components requirement):
 // the shell prerenders instantly and the job view streams in.

@@ -88,6 +88,8 @@ export interface Job {
   sample: SampleInfo | null;
   verdict: "ok" | "fraud" | null;
   inference: InferenceRecord | null;
+  approvalId?: string | null; // the human approval that let this job be created, if one was needed
+  fraud?: { tileIndex: number; owner: string; expectedTileHash: string; claimedTileHash: string } | null; // what the verifier proved
 }
 
 export const jobStatusSchema = z.enum(JOB_STATUSES);

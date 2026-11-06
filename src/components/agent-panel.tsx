@@ -176,6 +176,10 @@ export function AgentPanel() {
               {info.balanceHbar} <span className="text-lg text-muted">HBAR</span>
             </p>
             <p className="mt-1 text-xs text-muted">The agent pays your jobs from this. Test HBAR on Hedera testnet.</p>
+            <p className="mt-1 text-xs text-muted">
+              In your wallet:{" "}
+              <span className="tabular-nums text-foreground">{info.walletBalanceHbar === null ? "unavailable right now" : `${info.walletBalanceHbar} HBAR`}</span>
+            </p>
           </div>
           <div className="w-full sm:w-auto">
             <label htmlFor="amount" className="mb-1 block text-xs font-medium text-muted">

@@ -19,10 +19,20 @@ export function WalletButton() {
     <details className="relative">
       <summary className="flex h-9 cursor-pointer list-none items-center gap-2 rounded-full border border-line bg-surface pl-3 pr-1 text-sm shadow-[var(--shadow-border)]">
         <span className="font-mono text-xs">{shortAddr(info.address)}</span>
-        <span className="rounded-full bg-accent-muted px-2.5 py-1 text-xs font-medium text-accent tabular-nums">{info.balanceHbar} HBAR</span>
+        {info.walletBalanceHbar !== null && <span className="hidden tabular-nums text-xs text-muted sm:inline">{info.walletBalanceHbar} HBAR</span>}
+        <span className="rounded-full bg-accent-muted px-2.5 py-1 text-xs font-medium text-accent tabular-nums" title="Prepaid credit for the Mesh agent">{info.balanceHbar} credit</span>
       </summary>
       <div className="absolute right-0 z-50 mt-2 w-56 rounded-2xl bg-surface p-2 text-sm shadow-[var(--shadow-border),var(--shadow-elevated)]">
-        <p className="px-3 py-2 text-xs text-muted">Prepaid credit for the Mesh agent</p>
+        <dl className="space-y-1 px-3 py-2 text-xs">
+          <div className="flex justify-between gap-3">
+            <dt className="text-muted">In your wallet</dt>
+            <dd className="tabular-nums">{info.walletBalanceHbar === null ? "unavailable" : `${info.walletBalanceHbar} HBAR`}</dd>
+          </div>
+          <div className="flex justify-between gap-3">
+            <dt className="text-muted">Prepaid credit</dt>
+            <dd className="tabular-nums">{info.balanceHbar} HBAR</dd>
+          </div>
+        </dl>
         <Link href="/app" className="block rounded-xl px-3 py-2 hover:bg-background">
           Dashboard
         </Link>

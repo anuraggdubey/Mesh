@@ -6,6 +6,7 @@ import { getBalance, tinybarsToHbar } from "@/lib/credits";
 import { depositAddress } from "@/lib/deposits";
 import { getEnv } from "@/lib/env";
 import { readSession } from "@/lib/session";
+import { walletHbar } from "@/lib/wallet-balance";
 
 /** GET /api/wallet: who is signed in, their prepaid balance, and where to send a deposit. Works without a session (authenticated: false). */
 export async function GET(req: Request) {
@@ -14,11 +15,13 @@ export async function GET(req: Request) {
   const address = await readSession(req);
   if (address) await expireStaleRuns();
   const balance = address ? getBalance(address) : 0;
+  const walletBalanceHbar = address ? await walletHbar(address) : null;
   return json({
     authenticated: Boolean(address),
     address: address ? getAddress(address) : null,
     balanceTinybars: balance,
     balanceHbar: tinybarsToHbar(balance),
+    walletBalanceHbar,
     depositAddress: depositAddress(),
     chainId: env.HEDERA_CHAIN_ID,
     rpcUrl: env.HEDERA_RPC_URL,

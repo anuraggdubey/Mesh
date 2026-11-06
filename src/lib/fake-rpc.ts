@@ -17,6 +17,8 @@ export interface FakeTx {
 export interface FakeRpc {
   url: string;
   txs: Map<string, FakeTx>;
+  /** lower-case address -> hex weibars, answered by eth_getBalance */
+  balances: Map<string, string>;
   mode: "ok" | "down" | "error";
   calls: string[];
   stop: () => Promise<void>;
@@ -25,7 +27,7 @@ export interface FakeRpc {
 export const hbarToWeibarHex = (hbar: number): string => "0x" + (BigInt(Math.round(hbar * 1e8)) * 10n ** 10n).toString(16);
 
 export async function startFakeRpc(): Promise<FakeRpc> {
-  const f = { txs: new Map<string, FakeTx>(), mode: "ok", calls: [], url: "" } as unknown as FakeRpc;
+  const f = { txs: new Map<string, FakeTx>(), balances: new Map<string, string>(), mode: "ok", calls: [], url: "" } as unknown as FakeRpc;
   const server: Server = createServer(async (req, res) => {
     const chunks: Buffer[] = [];
     for await (const c of req) chunks.push(c as Buffer);
@@ -39,6 +41,9 @@ export async function startFakeRpc(): Promise<FakeRpc> {
     if (f.mode === "error") return reply(200, { jsonrpc: "2.0", id: body.id, error: { code: -32000, message: "boom" } });
     const hash = (body.params?.[0] ?? "").toLowerCase();
     const tx = f.txs.get(hash);
+    if (body.method === "eth_getBalance") {
+      return reply(200, { jsonrpc: "2.0", id: body.id, result: f.balances.get(hash) ?? "0x0" });
+    }
     if (body.method === "eth_getTransactionReceipt") {
       if (!tx || tx.mined === false) return reply(200, { jsonrpc: "2.0", id: body.id, result: null });
       return reply(200, { jsonrpc: "2.0", id: body.id, result: { status: tx.status ?? "0x1", from: tx.from, to: tx.to } });

@@ -16,6 +16,8 @@ export interface WalletInfo {
   authenticated: boolean;
   address: string | null;
   balanceHbar: string;
+  /** the wallet's own HBAR on chain (not the prepaid credit); null while it cannot be read */
+  walletBalanceHbar: string | null;
   balanceTinybars: number;
   depositAddress: string | null;
   chainId: number;

@@ -2,7 +2,7 @@
 
 Single reference for the three sponsors we target. Prize text is condensed from the ETHGlobal Mumbai prize pages (pasted by Anurag on 2026-11-06). Technical facts come from the sponsors' docs as read on 2026-11-06 by research agents; items marked **[UNVERIFIED]** were not confirmed by a live call and must be checked before we rely on them. Confirm the live prize text again before submitting.
 
-Related: [MESH-IMPLEMENTATION-PLAN.md](../MESH-IMPLEMENTATION-PLAN.md), [job-spec.md](job-spec.md), [MISBAH.md](../MISBAH.md), [ANURAG.md](../ANURAG.md).
+Related: [job-spec.md](job-spec.md), [QA.md](QA.md), [FEEDBACK-world.md](FEEDBACK-world.md), [FEEDBACK-hedera.md](FEEDBACK-hedera.md), [OG-STATUS.md](OG-STATUS.md).
 
 ---
 
@@ -11,7 +11,7 @@ Related: [MESH-IMPLEMENTATION-PLAN.md](../MESH-IMPLEMENTATION-PLAN.md), [job-spe
 - **Submit up to 3 partner prizes.** All tracks of one partner count as ONE pick (so World Agent Pass + World IDKit together cost one pick).
 - **Continuity-only prizes are not for us** (we started from scratch): World Agent Pass $2,500, World IDKit "Cont", 0G Keep Building, Hedera Built on Hedera, and similar.
 - **Demo video:** ETHGlobal wants 2–4 min, at least 720 p, our own voice (no TTS, no phone recording, no speeding up). Hedera accepts up to 5 min. **0G wants under 3 min.** So make ONE video of about **2:45** that satisfies all three.
-- **Public GitHub repo** with README (setup, architecture, payment flow, honest limits), steady commit history, `AI.md`.
+- **Public GitHub repo** with README (setup, architecture, payment flow, honest limits), steady commit history, `docs/AI.md`.
 - **Hedera needs a settled-payment transaction ID in the README** and a HashScan link in the video.
 - **World needs a short integration debrief** (time to first success, friction, missing docs, the one improvement with greatest impact). Write it as we go in `docs/FEEDBACK-world.md`.
 - 0G: "prizes are paid at 0G's discretion"; they pay only above a quality threshold.
@@ -219,7 +219,7 @@ Mesh is a compute marketplace, not a consumer AI app. A bolted-on chat call woul
 - [ ] Contract addresses in README and `.env.example` (already committed).
 - [ ] Team names with Telegram and X handles for the submission form.
 - [ ] Live demo link for the web app (needs a public URL for the API with a persistent disk).
-- [ ] `AI.md` current; repo history steady.
+- [ ] `docs/AI.md` current; repo history steady.
 - [ ] Submission form: pick Hedera, World, and (optionally) 0G or a third partner; choose Finalist + Partner Prizes.
 - [ ] Rehearse on two machines; keep a recorded backup.
 

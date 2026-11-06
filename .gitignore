@@ -97,3 +97,14 @@ desktop.ini
 .cache/
 .claude/settings.local.json
 .claude/scratch/
+
+# ───────── Private working notes (kept locally, not published) ─────────
+# Implementation plan and the per-person task lists live here.
+/planning/
+
+# ───────── Local scratch ─────────
+.claude/launch.json
+/_*.mjs
+/_*.ts
+*.bak
+.env.railway

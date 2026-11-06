@@ -1,4 +1,4 @@
-// Verifier worker for deterministic render claims. See MISBAH.md §6.
+// Verifier worker for deterministic render claims. See docs/job-spec.md section 10.3.
 import "dotenv/config";
 import {
   createPublicClient,

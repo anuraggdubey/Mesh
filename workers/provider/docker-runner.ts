@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
 import {
+  chmod,
   mkdir,
   mkdtemp,
   readFile,
@@ -208,7 +209,9 @@ export async function runDockerTask(
 
   try {
     await writeFile(join(inputDir, "job.json"), inputBytes, { flag: "wx" });
-    await runProcess(docker, ["image", "pull", image], 5 * 60_000);
+    // Only this job's result directory can be changed by the unprivileged job.
+    await chmod(outputDir, 0o777);
+    await runProcess(docker, ["image", "pull", "--platform", "linux/amd64", image], 5 * 60_000);
     const inspect = await runProcess(
       docker,
       ["image", "inspect", "--format", "{{json .RepoDigests}}", image],
@@ -249,6 +252,12 @@ export async function runDockerTask(
       "--pids-limit",
       String(options.pidsLimit ?? 256),
       "--read-only",
+      "--user",
+      "65532:65532",
+      "--cap-drop",
+      "ALL",
+      "--security-opt",
+      "no-new-privileges:true",
       "--tmpfs",
       "/tmp:rw,size=64m",
       "--mount",

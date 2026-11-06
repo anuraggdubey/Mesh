@@ -677,3 +677,14 @@ Spending control for the autonomous agent: a job priced above `AGENT_APPROVAL_TH
 - **Denied path:** no header gives `403 approval_required`; a pending, denied, expired, spent, mismatched or unknown approval gives `403 approval_denied {reason}`. In every case **no job is created and nothing is paid**.
 - A spent approval is recorded as an `approval` event on the job.
 - Needs a confidential OIDC client from `auth.world.org/portal`: `WORLD_IDP_CLIENT_ID`, `WORLD_IDP_CLIENT_SECRET` (SECRET), `WORLD_IDP_ISSUER` (default `https://auth.world.org`).
+
+### 17.1 Fallback: approval by World ID proof (`method: "idkit"`)
+
+The `auth.world.org` portal is not open to every account. When the OIDC client is **not** configured but IDKit is (`NEXT_PUBLIC_WORLD_APP_ID`, `WORLD_RP_ID`, `WORLD_SIGNING_KEY`), `POST /api/approvals` creates an approval with `method: "idkit"` instead of failing. With the client set, the device grant is used (`method: "device"`). Everything after creation (the `X-Mesh-Approval` header, binding hash, single use, the gate on `POST /api/jobs`, the agent's polling) is identical.
+
+- The response has `method`, `userCode` (short, for reading out), `verificationUri` = `${API_PUBLIC_URL}/approve/<id>`, `interval: 2`, and a 10 minute `expiresAt`. There is no device code.
+- The human opens the page, sees the job (preset, price, requester) and proves they are a unique human with World ID (Proof of Human). The page uses `POST /api/world/rp-context {action:"approve-spend", approvalId}` (only for a pending idkit approval) to get a signed request for the IDKit **action `approve-<approvalId>`**: every approval has its own action, so a proof is useless for any other approval.
+- `POST /api/approvals/:id/idkit {result}` verifies the IDKit result on the server (the proof's `action` must equal `approve-<id>`, the environment is pinned, World's verify endpoint must say success). The nullifier is stored per (nullifier, action). Result: `200` approved (subject `world-id|<nullifier>`); `401 world_denied {reason}` for `wrong_action | wrong_environment | invalid_proof | no_nullifier | nullifier_reused | missing_proof`, leaving the approval **pending**; `503` when World cannot be reached (never a pass); `409` when it is expired, denied or used; `400` for a device approval; `404` unknown.
+- `POST /api/approvals/:id/cancel` turns a pending idkit approval into `denied`. A later valid proof cannot revive it.
+- **Honest limit:** the proof says "a unique human approved this approval id". The job details are bound by the approval's hash on our server, not inside the World proof.
+

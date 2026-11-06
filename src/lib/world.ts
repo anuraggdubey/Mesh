@@ -11,7 +11,17 @@ import { getEnv } from "./env";
  */
 
 export const WORLD_ACTIONS = ["register-provider"] as const;
-export type WorldAction = (typeof WORLD_ACTIONS)[number];
+/**
+ * An IDKit action name. Either one of the fixed actions, or a per-approval action `approve-<approvalId>`: every human approval of a
+ * spend gets its own action, so each approval needs a fresh proof and a proof for one approval is useless for another.
+ */
+export type WorldAction = string;
+
+const APPROVAL_ACTION = /^approve-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+export function approvalAction(approvalId: string): string {
+  return `approve-${approvalId}`;
+}
 
 const now = () => Math.floor(Date.now() / 1000);
 
@@ -40,15 +50,21 @@ export class WorldDeniedError extends Error {
   }
 }
 
-export function isWorldAction(a: unknown): a is WorldAction {
+/** True for the fixed actions only (what POST /api/world/rp-context accepts without an approval id). */
+export function isWorldAction(a: unknown): a is (typeof WORLD_ACTIONS)[number] {
   return typeof a === "string" && (WORLD_ACTIONS as readonly string[]).includes(a);
+}
+
+/** True for any action this server will sign or verify: a fixed one, or a well-formed per-approval one. */
+export function isKnownAction(a: unknown): a is WorldAction {
+  return isWorldAction(a) || (typeof a === "string" && APPROVAL_ACTION.test(a));
 }
 
 /** The values the browser needs to open the IDKit widget. The signing key never leaves the server. */
 export function createRpContext(action: WorldAction) {
   const env = getEnv();
   if (!env.WORLD_RP_ID || !env.WORLD_SIGNING_KEY || !env.NEXT_PUBLIC_WORLD_APP_ID) throw new WorldDeniedError("not_configured", "World ID is not configured on the server");
-  if (!isWorldAction(action)) throw new WorldDeniedError("unsupported_action", `unsupported action: ${String(action)}`);
+  if (!isKnownAction(action)) throw new WorldDeniedError("unsupported_action", `unsupported action: ${String(action)}`);
   const key = env.WORLD_SIGNING_KEY.replace(/^0x/, "");
   const sig = signRequest({ signingKeyHex: key, action });
   return {
@@ -75,6 +91,7 @@ export async function verifyIdkitProof(action: WorldAction, result: unknown, fet
   const env = getEnv();
   if (!env.WORLD_RP_ID) throw new WorldDeniedError("not_configured", "World ID is not configured on the server");
   if (!result || typeof result !== "object") throw new WorldDeniedError("missing_proof", "a World ID proof is required");
+  if (!isKnownAction(action)) throw new WorldDeniedError("unsupported_action", `unsupported action: ${String(action)}`);
   const idkit = result as IdkitResult;
 
   if (idkit.action !== action) throw new WorldDeniedError("wrong_action", "the proof was made for a different action");

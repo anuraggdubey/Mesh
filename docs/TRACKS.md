@@ -144,6 +144,8 @@ Conflict: our `MeshEscrow` is an **EVM contract** holding an ERC-20 (`MockStable
 
 Approvals are **bound to the specific action** (price, preset, requester) and **consumed once**; the agent cannot reuse an approval or inflate the amount after approval.
 
+**Fallback chosen (2026-11-06): approval by World ID proof.** The `auth.world.org` portal answered "not eligible" for the team's accounts (it asks for an enterprise account), so no OIDC client exists and the device grant cannot be exercised live. When no client is configured, an approval is answered with an **IDKit Proof of Human made for that one approval** (IDKit action `approve-<approvalId>`), on our page `/approve/<id>`, and verified on the server like the provider proof (spec section 17.1). It keeps the track's journey: request, human completes in the World app, validated result, protected agent action, plus the denied / expired / cancelled path where nothing is created or paid. Stated honestly in the debrief and the docs: this is World ID IDKit, not the official Agent Pass OIDC client. The device-grant code is kept and used automatically if a client becomes available. Unverified until a live scan: that World accepts an action created on the fly in the user's app.
+
 ### 3.5 Tasks and owners (World)
 
 | Task | Owner | Notes |

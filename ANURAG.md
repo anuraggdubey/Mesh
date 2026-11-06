@@ -242,6 +242,7 @@ Everything about what each sponsor requires, the technical facts and the open de
 - [x] Verifier endpoint `POST /api/verifier/verdict` (signed by the verifier key), slash and refund bookkeeping, chain adoption of a `Rejected` receipt. 13 tests.
 - [x] HCS audit log (`src/lib/hcs.ts`), built from job events, retried, 1 KB guard; `npm run hcs:create-topic`; receipts return topic and sequences. 14 tests (fake submitter; **not yet run against live Hedera**).
 - [x] **0G AI review** of the finished render (`src/lib/og.ts`, `review.ts`, `png.ts`, `/api/jobs/:id/review`, job page panel, HCS `INFERENCE`, receipt field). 27 tests with a fake Router; **needs your 0G key and a live spike** (docs/OG-STATUS.md).
+- [x] Approval fallback when the auth.world.org client is unavailable: `POST /api/approvals` creates a `method: idkit` approval, the human proves they are a unique human on `/approve/<id>` (World ID action `approve-<id>`), server-verified; cancel, expiry, replay and outage paths tested (21 tests). Device grant is used automatically if the client exists. **A live scan is not yet done.**
 - [x] IDKit widget page `/provider/verify` (renders; a full scan needs the portal app) and a "Become a provider" link.
 
 ### Only you can do (accounts, keys, funds, decisions)

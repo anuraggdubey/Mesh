@@ -43,19 +43,21 @@ export default function Identity() {
         person for that exact job before it is allowed to pay.
       </p>
       <ol>
-        <li>The agent calls <code>POST /api/approvals</code> with the job it wants. The server starts a device authorization with the World IdP and returns a short code and a link.</li>
-        <li>The person opens the link and approves with a fresh Orb-level check in the World app.</li>
-        <li>The server polls World, validates the returned ID token (RS256 signature, issuer, audience, expiry, Orb assurance, recent authentication), and marks the approval granted.</li>
+        <li>The agent calls <code>POST /api/approvals</code> with the job it wants. The server returns a short code and a link to an approval page.</li>
+        <li>The person opens the link, sees the job and its price, and proves they are a unique human with World ID, for this one approval.</li>
+        <li>The server checks the proof with World (the proof must be for this approval&apos;s own action, and each proof counts once) and marks the approval granted.</li>
         <li>The agent retries <code>POST /api/jobs</code> with <code>X-Mesh-Approval: &lt;id&gt;</code>. The server checks the approval first, before it asks for any money.</li>
       </ol>
       <p>
         An approval is <strong>bound</strong> to one requester, preset and price by a hash, and it is <strong>single use</strong>. The agent cannot reuse it or inflate the amount
         afterwards. If the approval is missing, pending, denied, expired, spent or for a different job, no job is created and nothing is paid.
       </p>
-      <Callout kind="warn" title="Status of the live integration">
+      <Callout kind="warn" title="Which World product answers the approval">
         <p>
-          Both flows are built and tested against a local fake World server, including the denied and expired paths. The provider scan and the approval client still need to be exercised with
-          real World credentials. The approval client on <code>auth.world.org</code> needs portal access that was not available when this page was written.
+          There are two ways to answer an approval. The World IdP device grant (the Agent Pass route, validated ID token) is built and is used automatically when a World IdP client is
+          configured. The <code>auth.world.org</code> portal was not open to our accounts, so this deployment answers approvals with a <strong>World ID (IDKit) proof</strong> made for
+          each approval instead. Both are tested against local fake World servers, including the denied, cancelled and expired paths. A live scan with real World credentials has not been
+          run yet.
         </p>
       </Callout>
       <DocsPager href="/docs/identity" />

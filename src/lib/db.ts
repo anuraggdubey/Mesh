@@ -124,6 +124,7 @@ function ensureColumn(db: DatabaseSync, table: string, column: string, definitio
 function migrate(db: DatabaseSync): void {
   ensureColumn(db, "providers", "chain_tx", "TEXT");
   ensureColumn(db, "job_events", "hcs_seq", "INTEGER"); // NULL = not published to HCS yet, 0 = not part of the log
+  ensureColumn(db, "approvals", "method", "TEXT NOT NULL DEFAULT 'device'"); // device = World IdP device grant, idkit = World ID proof per approval
 }
 
 type GlobalWithDb = typeof globalThis & { __meshDb?: { path: string; db: DatabaseSync } };

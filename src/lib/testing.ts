@@ -79,6 +79,8 @@ export function setupTestEnv(overrides: Partial<Record<(typeof KEYS)[number], st
   process.env.MESH_DEV_SKIP_WORLD = "false";
   process.env.MESH_CHAIN_LOOP = "false";
   for (const k of ["WORLD_RP_ID", "WORLD_SIGNING_KEY", "NEXT_PUBLIC_WORLD_APP_ID", "WORLD_ENVIRONMENT", "WORLD_VERIFY_BASE_URL", "WORLD_IDP_ISSUER", "WORLD_IDP_CLIENT_ID", "WORLD_IDP_CLIENT_SECRET", "WORLD_IDP_ALLOWED_ACR", "AGENT_APPROVAL_THRESHOLD", "AGENT_APPROVAL_MAX_AGE_SECONDS", "X402_FACILITATOR_URL", "X402_NETWORK", "X402_PAY_TO", "X402_ASSET", "X402_MAX_TIMEOUT_SECONDS", "X402_ENABLED", "MIRROR_NODE_URL", "VERIFIER_ADDRESS", "HCS_TOPIC_ID", "WORLD_IDP_CLIENT_AUTH", "OG_ENABLED", "OG_API_KEY", "OG_API_BASE_URL", "OG_MODEL", "OG_SIGNER_ADDRESS", "OG_SIGNATURE_BASE_URL", "OG_TIMEOUT_MS", "MESH_SESSION_SECRET", "AGENT_PRIVATE_KEY", "AGENT_HEDERA_ACCOUNT_ID", "AGENT_DEPOSIT_ADDRESS", "API_INTERNAL_URL"]) process.env[k] = "";
+  // A blank mirror URL would fall through to the public mirror. Wallet reads must stay on the closed local port unless a test points them at a fake.
+  process.env.MIRROR_NODE_URL = "http://127.0.0.1:9";
   process.env.MESH_DEV_AUTO_APPROVE = "false";
   process.env.STAKE_ADDRESS = ""; // chain access is off unless a test turns it on
   process.env.API_PRIVATE_KEY = "";

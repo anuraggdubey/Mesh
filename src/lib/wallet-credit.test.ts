@@ -124,6 +124,33 @@ describe("prepaid credit and deposits", () => {
       await expect(recordDeposit(user.address, tx(10))).rejects.toMatchObject({ code: "wrong_chain" });
     });
 
+    it("aborts one hung relay attempt while the receipt and the transaction are both in flight", async () => {
+      let inflight = 0;
+      let maxInflight = 0;
+      const methods: string[] = [];
+      const fetchImpl: typeof fetch = async (_url, init) => {
+        inflight += 1;
+        maxInflight = Math.max(maxInflight, inflight);
+        methods.push(JSON.parse(String(init?.body)).method as string);
+        return new Promise((_resolve, reject) => {
+          const signal = init?.signal;
+          const onAbort = () => {
+            inflight -= 1;
+            reject(Object.assign(new Error("aborted"), { name: "AbortError" }));
+          };
+          if (signal?.aborted) onAbort();
+          else signal?.addEventListener("abort", onAbort, { once: true });
+        });
+      };
+      const started = performance.now();
+      await expect(recordDeposit(user.address, tx(50), fetchImpl, 200)).rejects.toMatchObject({ code: "rpc_unavailable" });
+      const elapsed = performance.now() - started;
+      expect(elapsed).toBeLessThan(1_000);
+      expect(maxInflight).toBe(2);
+      expect(methods.sort()).toEqual(["eth_getTransactionByHash", "eth_getTransactionReceipt"]);
+      expect(getBalance(user.address)).toBe(0);
+    });
+
     it("reports the relay being down as 503 and changes nothing", async () => {
       send(tx(11));
       rpc.mode = "down";

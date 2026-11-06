@@ -19,7 +19,7 @@ export interface FakeRpc {
   txs: Map<string, FakeTx>;
   /** lower-case address -> hex weibars, answered by eth_getBalance */
   balances: Map<string, string>;
-  mode: "ok" | "down" | "error";
+  mode: "ok" | "down" | "error" | "hang";
   calls: string[];
   stop: () => Promise<void>;
 }
@@ -37,6 +37,7 @@ export async function startFakeRpc(): Promise<FakeRpc> {
       res.writeHead(status, { "content-type": "application/json" });
       res.end(JSON.stringify(b));
     };
+    if (f.mode === "hang") return; // leave the socket open until the caller aborts
     if (f.mode === "down") return reply(503, { error: "down" });
     if (f.mode === "error") return reply(200, { jsonrpc: "2.0", id: body.id, error: { code: -32000, message: "boom" } });
     const hash = (body.params?.[0] ?? "").toLowerCase();

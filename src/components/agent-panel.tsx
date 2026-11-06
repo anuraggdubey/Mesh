@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { hashscan } from "@/lib/ui/format";
 import { OgBadge } from "./og-badge";
 import type { Verification } from "./og-badge";
+import { DepositNotConfirmedError, DepositRejectedError } from "./wallet-connect";
 import { useWallet } from "./wallet-provider";
 
 interface PlanOut {
@@ -50,6 +51,7 @@ export function AgentPanel() {
 
   // deposit
   const [amount, setAmount] = useState("1");
+  const [pendingTx, setPendingTx] = useState<string | null>(null);
   const [dep, setDep] = useState<{ stage: "idle" | "confirm" | "waiting" | "done" | "error"; message?: string; result?: { creditedHbar: string; receiptUrl: string; txHash: string } }>({ stage: "idle" });
 
   // plan
@@ -94,11 +96,18 @@ export function AgentPanel() {
   }, [run, router]);
 
   async function doDeposit() {
-    setDep({ stage: "confirm" });
+    setDep({ stage: pendingTx ? "waiting" : "confirm" });
     try {
-      const r = await deposit(Number(amount), (s) => setDep({ stage: s }));
+      // A hash we already sent is only checked again. Deposit does not broadcast a second transfer.
+      const r = await deposit(Number(amount), (s) => setDep({ stage: s }), pendingTx ?? undefined);
+      setPendingTx(null);
       setDep({ stage: "done", result: { creditedHbar: r.creditedHbar, receiptUrl: r.receiptUrl, txHash: r.txHash } });
     } catch (e) {
+      if (e instanceof DepositNotConfirmedError || e instanceof DepositRejectedError) {
+        setPendingTx(e.txHash);
+        setDep({ stage: "error", message: e.message });
+        return;
+      }
       setDep({ stage: "error", message: e instanceof Error ? e.message : "the deposit failed" });
     }
   }
@@ -200,7 +209,7 @@ export function AgentPanel() {
                 aria-describedby="deposit-status"
               />
               <button type="button" onClick={doDeposit} disabled={dep.stage === "confirm" || dep.stage === "waiting"} className="btn-primary !h-10 text-sm disabled:opacity-60">
-                {dep.stage === "confirm" ? "Confirm in wallet…" : dep.stage === "waiting" ? "Confirming…" : "Deposit"}
+                {dep.stage === "confirm" ? "Confirm in wallet…" : dep.stage === "waiting" ? "Checking…" : pendingTx ? "Check again" : "Deposit"}
               </button>
             </div>
             <div className="mt-2 flex gap-1.5">
@@ -213,7 +222,7 @@ export function AgentPanel() {
           </div>
         </div>
         <div id="deposit-status" aria-live="polite" className="mt-3 text-sm">
-          {dep.stage === "waiting" && <p className="text-muted">Waiting for Hedera to confirm your deposit…</p>}
+          {dep.stage === "waiting" && <p className="text-muted">Checking this transfer. Mesh has not credited it yet, and Hedera may still be confirming it.</p>}
           {dep.stage === "done" && dep.result && (
             <p className="text-emerald-700">
               Credited {dep.result.creditedHbar} HBAR.{" "}
@@ -228,7 +237,12 @@ export function AgentPanel() {
           )}
           {dep.stage === "error" && (
             <p role="alert" className="text-red-600">
-              {dep.message}
+              {dep.message}{" "}
+              {pendingTx && (
+                <button type="button" className="underline underline-offset-2" onClick={() => { setPendingTx(null); setDep({ stage: "idle" }); }}>
+                  Start a new deposit
+                </button>
+              )}
             </p>
           )}
         </div>

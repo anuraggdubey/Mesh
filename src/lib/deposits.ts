@@ -14,6 +14,8 @@ import { getEnv } from "./env";
 
 export const WEIBAR_PER_TINYBAR = 10n ** 10n;
 export const MIN_DEPOSIT_TINYBARS = 1_000_000; // 0.01 HBAR: stops dust from filling the ledger
+/** One confirmation read. The receipt and the transaction are fetched together, so a slow relay costs this once, not twice. */
+export const DEPOSIT_RPC_TIMEOUT_MS = 6_000;
 
 export class DepositError extends Error {
   constructor(
@@ -38,14 +40,14 @@ export function weibarToTinybar(weibar: bigint): number {
   return Number(weibar / WEIBAR_PER_TINYBAR);
 }
 
-async function rpc<T>(method: string, params: unknown[], fetchImpl: typeof fetch): Promise<T | null> {
+async function rpc<T>(method: string, params: unknown[], fetchImpl: typeof fetch, timeoutMs: number): Promise<T | null> {
   let res: Response;
   try {
     res = await fetchImpl(getEnv().HEDERA_RPC_URL, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
-      signal: AbortSignal.timeout(20_000),
+      signal: AbortSignal.timeout(timeoutMs),
     });
   } catch {
     throw new DepositError(503, "rpc_unavailable", "could not reach the Hedera JSON-RPC relay: try again in a moment");
@@ -72,21 +74,22 @@ interface RpcTx {
  * Verify a deposit transaction and credit `sender` for it. Idempotent per transaction hash: crediting the same hash twice is
  * refused with already_credited and changes nothing. Returns what was credited and the new balance.
  */
-export async function recordDeposit(sender: string, txHash: string, fetchImpl: typeof fetch = fetch): Promise<{ credited: number; balance: number; txHash: string; receiptId: string }> {
+export async function recordDeposit(sender: string, txHash: string, fetchImpl: typeof fetch = fetch, timeoutMs = DEPOSIT_RPC_TIMEOUT_MS): Promise<{ credited: number; balance: number; txHash: string; receiptId: string }> {
   const to = depositAddress();
   if (!to) throw new DepositError(503, "not_configured", "no deposit address is configured on this server (AGENT_PRIVATE_KEY or AGENT_DEPOSIT_ADDRESS)");
   if (!/^0x[0-9a-fA-F]{64}$/.test(txHash)) throw new DepositError(400, "invalid_tx", "a transaction hash is 0x followed by 64 hex characters");
   if (!isAddress(sender)) throw new DepositError(400, "invalid_tx", "invalid sender");
 
-  const receipt = await rpc<RpcReceipt>("eth_getTransactionReceipt", [txHash], fetchImpl);
+  // One round trip: a relay that answers slowly must not be waited on twice (receipt, then the transaction).
+  const [receipt, tx] = await Promise.all([
+    rpc<RpcReceipt>("eth_getTransactionReceipt", [txHash], fetchImpl, timeoutMs),
+    rpc<RpcTx>("eth_getTransactionByHash", [txHash], fetchImpl, timeoutMs),
+  ]);
   if (!receipt) {
     // not mined yet, or a hash that never existed: the caller may retry
-    const known = await rpc<RpcTx>("eth_getTransactionByHash", [txHash], fetchImpl);
-    throw known ? new DepositError(409, "pending", "the transaction is not confirmed yet: try again in a few seconds") : new DepositError(404, "not_found", "no such transaction on Hedera testnet (yet)");
+    throw tx ? new DepositError(409, "pending", "the transaction is not confirmed yet: try again in a few seconds") : new DepositError(404, "not_found", "no such transaction on Hedera testnet (yet)");
   }
   if (receipt.status !== "0x1") throw new DepositError(422, "failed", "that transaction failed on chain, so nothing was credited");
-
-  const tx = await rpc<RpcTx>("eth_getTransactionByHash", [txHash], fetchImpl);
   if (!tx || typeof tx.value !== "string" || !tx.to || !tx.from) throw new DepositError(404, "not_found", "the transaction could not be read back");
   if (tx.chainId && BigInt(tx.chainId) !== BigInt(getEnv().HEDERA_CHAIN_ID)) throw new DepositError(422, "wrong_chain", "that transaction is on a different network");
   if (tx.to.toLowerCase() !== to.toLowerCase()) throw new DepositError(422, "wrong_recipient", "that transaction did not pay the Mesh agent wallet");

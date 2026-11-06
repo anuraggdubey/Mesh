@@ -3,12 +3,15 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { parseEther, toHex } from "viem";
+import { confirmDeposit, DepositNotConfirmedError, DepositRejectedError, ensureHederaChain, requestWalletAccount, signWalletLogin } from "./wallet-connect";
+import type { ConfirmedDeposit } from "./wallet-connect";
 import { pickWallet } from "./wallet-discovery";
-import type { Eip1193, PickedWallet } from "./wallet-discovery";
+import type { PickedWallet } from "./wallet-discovery";
 
 /**
- * Wallet state for the whole site. Any EIP-1193 wallet (MetaMask and friends): connect, switch to Hedera testnet, sign a plain
- * message to sign in (no transaction, no gas), and send a normal HBAR transfer to deposit credit. We never see a key.
+ * Wallet state for the whole site. Any EIP-1193 wallet (MetaMask and friends): connect, sign a plain message to sign in
+ * (no transaction, no gas, and no network switch), and send a normal HBAR transfer to deposit credit. The network switch
+ * happens only for that transfer, because it is what makes the wallet talk to the JSON-RPC relay. We never see a key.
  */
 
 
@@ -43,7 +46,8 @@ interface Ctx {
   disconnect: () => Promise<void>;
   refresh: () => Promise<void>;
   bump: () => void;
-  deposit: (amountHbar: number, onStatus: (s: "confirm" | "waiting") => void) => Promise<DepositResult>;
+  /** Pass `existingTxHash` to ask about a transfer that was already sent, without sending another one. */
+  deposit: (amountHbar: number, onStatus: (s: "confirm" | "waiting") => void, existingTxHash?: string) => Promise<DepositResult>;
 }
 
 const WalletCtx = createContext<Ctx | null>(null);
@@ -64,22 +68,6 @@ async function api<T>(url: string, body?: unknown): Promise<{ ok: boolean; statu
   const res = await fetch(url, body === undefined ? undefined : { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
   const data = (await res.json().catch(() => ({}))) as T & { error?: string; message?: string };
   return { ok: res.ok, status: res.status, data };
-}
-
-async function ensureHederaChain(eth: Eip1193, chainId: number, rpcUrl: string): Promise<void> {
-  const want = `0x${chainId.toString(16)}`;
-  const current = (await eth.request({ method: "eth_chainId" })) as string;
-  if (current.toLowerCase() === want) return;
-  try {
-    await eth.request({ method: "wallet_switchEthereumChain", params: [{ chainId: want }] });
-  } catch (e) {
-    const code = (e as { code?: number }).code;
-    if (code !== 4902 && code !== -32603) throw e; // 4902: the wallet does not know this chain yet
-    await eth.request({
-      method: "wallet_addEthereumChain",
-      params: [{ chainId: want, chainName: "Hedera Testnet", nativeCurrency: { name: "HBAR", symbol: "HBAR", decimals: 18 }, rpcUrls: [rpcUrl], blockExplorerUrls: ["https://hashscan.io/testnet"] }],
-    });
-  }
 }
 
 export function WalletProvider({ children }: { children: ReactNode }) {
@@ -138,19 +126,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       }
       picked.current = w;
       setWalletName(w.name);
-      const eth = w.provider;
-      const accounts = (await eth.request({ method: "eth_requestAccounts" })) as string[];
-      const address = accounts[0];
-      if (!address) throw new Error("the wallet returned no account");
-      const cfg = info ?? (await api<WalletInfo>("/api/wallet")).data;
-      await ensureHederaChain(eth, cfg.chainId, cfg.rpcUrl);
-
+      const address = await requestWalletAccount(w.provider);
+      // Login does not switch networks. wallet_switchEthereumChain waits on the JSON-RPC relay inside the wallet.
       setBusy("signing");
-      const n = await api<{ nonce: string; message: string }>("/api/auth/nonce", { address });
-      if (!n.ok) throw new Error(n.data.message ?? n.data.error ?? "could not start sign-in");
-      const signature = (await eth.request({ method: "personal_sign", params: [n.data.message, address] })) as string;
-      const v = await api<{ address: string }>("/api/auth/verify", { address, nonce: n.data.nonce, signature });
-      if (!v.ok) throw new Error(v.data.message ?? v.data.error ?? "sign-in failed");
+      await signWalletLogin(w.provider, address, (url, body) => api(url, body));
       await refresh();
       setVersion((x) => x + 1);
     } catch (e) {
@@ -158,34 +137,34 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     } finally {
       setBusy("idle");
     }
-  }, [info, refresh]);
+  }, [refresh]);
 
   const deposit = useCallback<Ctx["deposit"]>(
-    async (amountHbar, onStatus) => {
-      const eth = (picked.current ?? (await pickWallet()))?.provider;
-      if (!eth) throw new Error("No wallet found in this browser.");
-      if (!info?.authenticated || !info.address || !info.depositAddress) throw new Error("Connect your wallet first.");
-      if (!(amountHbar >= 0.01)) throw new Error("The minimum deposit is 0.01 HBAR.");
-      await ensureHederaChain(eth, info.chainId, info.rpcUrl);
-      onStatus("confirm");
-      // an ordinary value transfer: on the JSON-RPC side 1 HBAR is 1e18, which is what parseEther produces
-      const txHash = (await eth.request({ method: "eth_sendTransaction", params: [{ from: info.address, to: info.depositAddress, value: toHex(parseEther(String(amountHbar))) }] })) as string;
-      onStatus("waiting");
-      for (let i = 0; i < 40; i++) {
-        const r = await api<{ creditedHbar: string; balanceHbar: string; receiptId: string; receiptUrl: string }>("/api/wallet/deposit", { txHash });
-        if (r.ok) {
-          await refresh();
-          setVersion((x) => x + 1);
-          return { txHash, creditedHbar: r.data.creditedHbar, balanceHbar: r.data.balanceHbar, receiptId: r.data.receiptId, receiptUrl: r.data.receiptUrl };
-        }
-        if (r.data.error === "already_credited") {
-          await refresh();
-          throw new Error("That deposit was already credited.");
-        }
-        if (r.data.error !== "pending" && r.data.error !== "not_found") throw new Error(r.data.message ?? r.data.error ?? "the deposit could not be verified");
-        await new Promise((res) => setTimeout(res, 2000));
+    async (amountHbar, onStatus, existingTxHash) => {
+      if (!info?.authenticated || !info.address) throw new Error("Connect your wallet first.");
+      let txHash = existingTxHash;
+      if (!txHash) {
+        const eth = (picked.current ?? (await pickWallet()))?.provider;
+        if (!eth) throw new Error("No wallet found in this browser.");
+        if (!info.depositAddress) throw new Error("Connect your wallet first.");
+        if (!(amountHbar >= 0.01)) throw new Error("The minimum deposit is 0.01 HBAR.");
+        await ensureHederaChain(eth, info.chainId, info.rpcUrl);
+        onStatus("confirm");
+        // an ordinary value transfer: on the JSON-RPC side 1 HBAR is 1e18, which is what parseEther produces
+        txHash = (await eth.request({ method: "eth_sendTransaction", params: [{ from: info.address, to: info.depositAddress, value: toHex(parseEther(String(amountHbar))) }] })) as string;
       }
-      throw new Error(`The deposit was sent (${txHash.slice(0, 10)}…) but is not confirmed yet. Reload in a minute: it will be credited.`);
+      onStatus("waiting");
+      let confirmed: ConfirmedDeposit;
+      try {
+        confirmed = await confirmDeposit(txHash, (url, body) => api(url, body));
+      } catch (e) {
+        // The transfer was already broadcast. Refresh credit in case an earlier check landed, then keep the hash for the caller.
+        if (e instanceof DepositNotConfirmedError || e instanceof DepositRejectedError) await refresh();
+        throw e;
+      }
+      await refresh();
+      setVersion((x) => x + 1);
+      return { txHash, creditedHbar: confirmed.creditedHbar, balanceHbar: confirmed.balanceHbar, receiptId: confirmed.receiptId, receiptUrl: confirmed.receiptUrl };
     },
     [info, refresh],
   );

@@ -64,6 +64,16 @@ A job whose chain step fails 4 times is ended and its payment refunded. Provider
 assigned a job. `GET /api/receipts/:jobId` returns the receipt as the contract holds it. After changing the loop's code, restart the API.
 The loop picks up where it left off: a job left `pending` finalizes after a restart.
 
+## Hedera testnet provider stake helper (live network)
+
+This is separate from the free local-chain rehearsal above. Run it from the repository root only after the provider has completed World ID registration and the provider wallet has enough testnet HBAR for the minimum stake and transaction fee. The helper reads `HEDERA_RPC_URL`, `HEDERA_CHAIN_ID=296`, `STAKE_ADDRESS`, `RECEIPT_ADDRESS`, and `PROVIDER_PRIVATE_KEY` from the ignored `.env`; it checks registration and current stake before sending anything. If registered and below the minimum, it stakes only the difference to `MeshReceipt.minStake`.
+
+```bash
+npx tsx scripts/stake-provider.ts
+```
+
+The command prints the submitted transaction hash and confirms the resulting stake after it is mined. If registration is missing, it exits before sending HBAR; complete the verified provider registration first, then retry. Keep the wallet key in `.env` and do not paste it into chat or commit it.
+
 ## What was checked
 
 - Both real workers register, pass the on-chain stake check, pull the image by digest and run it with `--network none`, `--read-only` and CPU/memory limits.

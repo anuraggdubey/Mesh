@@ -248,7 +248,7 @@ Everything about what each sponsor requires, the technical facts and the open de
 
 - [ ] Create the **developer.world.org** app: set `NEXT_PUBLIC_WORLD_APP_ID`, `WORLD_RP_ID`, `WORLD_SIGNING_KEY` in `.env`. Action name: `register-provider`.
 - [ ] Create the **auth.world.org** confidential OIDC client (accept **Orb only**): set `WORLD_IDP_CLIENT_ID`, `WORLD_IDP_CLIENT_SECRET`. Then set `AGENT_APPROVAL_THRESHOLD` (for example `200000`).
-- [ ] Fund the **API wallet** (treasury) and the **agent wallet** with testnet HBAR (`small` costs 5 HBAR, `tiny` 1). Set `AGENT_PRIVATE_KEY` (ECDSA) and `X402_ENABLED=true`. (x402 option B was chosen, so no USDC or token association is needed.)
+- [ ] Fund the **API wallet** (treasury) and the **agent wallet** with testnet HBAR (`small` costs 0.5 HBAR, `tiny` 0.1). Set `AGENT_PRIVATE_KEY` (ECDSA) and `X402_ENABLED=true`. (x402 option B was chosen, so no USDC or token association is needed.)
 - [ ] Run `npm run hcs:create-topic` once and set `HCS_TOPIC_ID`.
 - [ ] Get an HTTPS URL for the API (tunnel or small server) for the World approval and the demo link.
 - [ ] Run the agent live (`npm run agent -- small`) and paste the settled transaction ID and HashScan link into the README.

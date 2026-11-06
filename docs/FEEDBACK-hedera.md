@@ -4,7 +4,8 @@ Fill the timings in as we run live. Judges read it. Be specific and honest.
 
 - **What we use:** x402 v2 on `hedera:testnet` (`@x402/core`, `@x402/hedera`), HBAR as the payment asset (HTS USDC supported), the public facilitator, HCS for the audit log (`@hiero-ledger/sdk`), the mirror node for account lookup, and Hedera's EVM (Hashio JSON-RPC) for the stake, escrow and receipt contracts.
 - **Time to first settled x402 payment:** _(record after the first live run)_
-- **Settled payment transaction ID:** _(paste after the first live run)_
+- **Settled payment transaction ID:** `0.0.9185802@1793937163.341350400` (0.5 HBAR, official x402 facilitator, verified on the mirror node as `CRYPTOTRANSFER SUCCESS`). HCS topic `0.0.11333951`, first message `PAID`.
+- **Friction found on the first live run:** the facilitator answered `signature_invalid: could not resolve payer key`. The agent wallet had been funded by an EVM-address transfer, which creates a "hollow" Hedera account with no public key on the network. The facilitator looks that key up. One Hedera-native signed transaction from the account fixes it (`npm run agent:activate`). This is not mentioned in the x402 Hedera docs we read, and the error does not say why the key cannot be found.
 - **Friction so far (code only, before a live run):**
   - The x402 client rejects HBAR by default. Its spend controls only allow a built-in list of assets, so a client paying in HBAR needs `spendControls.allowedAssets` set explicitly.
   - The `exact` scheme on Hedera has no per-request nonce (the payment is a signed `cryptoTransfer`), so a server has to remember served payments itself to stop replay. We store a hash of the signed transaction.

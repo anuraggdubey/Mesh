@@ -457,7 +457,7 @@ x402 v2 on Hedera. Headers: `PAYMENT-REQUIRED` (402), `PAYMENT-SIGNATURE` (the p
 }
 ```
 
-- `asset` `0.0.0` is HBAR (tinybars; price units x 100, so `small` = 5 HBAR). An HTS token id (for example testnet USDC `0.0.429274`) is quoted 1:1 in price units. Set with `X402_ASSET`.
+- `asset` `0.0.0` is HBAR (tinybars; price units x 100, so `small` = 0.5 HBAR). An HTS token id (for example testnet USDC `0.0.429274`) is quoted 1:1 in price units. Set with `X402_ASSET`.
 - **Nothing is created at this step.** (v1 of this spec created a `created` job per challenge; that is gone.)
 - `payTo` is the treasury: `X402_PAY_TO`, or the API wallet's own Hedera account found through the mirror node.
 

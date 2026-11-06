@@ -44,7 +44,7 @@ Design details: [MESH-IMPLEMENTATION-PLAN.md](MESH-IMPLEMENTATION-PLAN.md). Exac
 
 Challenge window 45 s, minimum stake 0.5 HBAR, slash 0.2 HBAR. Deployment notes and checks: [docs/DEPLOY.md](docs/DEPLOY.md).
 
-**Settled-payment transaction ID (Hedera requirement):** not yet. The x402 flow is built and tested; this line is filled in after the first live settlement on testnet (`npm run agent -- small`).
+**Settled-payment transaction ID (Hedera requirement):** `0.0.9185802@1793937163.341350400` on Hedera testnet, a 0.5 HBAR x402 payment from the agent account `0.0.11333706` to the treasury `0.0.11327733`, settled through the official x402 facilitator: [view on HashScan](https://hashscan.io/testnet/transaction/0.0.9185802-1793937163-341350400). The audit log is HCS topic [`0.0.11333951`](https://hashscan.io/testnet/topic/0.0.11333951).
 
 **How a payment works.** The agent posts a job; the API answers `402` with a price in HBAR on `hedera:testnet`; the agent signs a Hedera transfer and retries; the x402 facilitator verifies and settles it on Hedera (it pays the network fee); only then is the job created. A signed payment works once. Above a spending threshold the agent must first get a human approval in World (Agent Pass) for that exact job. The settled payment goes to the treasury account; the escrow contract then mirrors it (an honest limit: the payment on HashScan is real, the escrow holds a test token that mirrors it).
 

@@ -224,7 +224,7 @@ Mesh is a compute marketplace, not a consumer AI app. A bolted-on chat call woul
 ## 6. Things only Anurag can do (accounts, keys, funds)
 
 1. Create the **`developer.world.org`** app and the **`auth.world.org`** OIDC client; add the values to `.env` (names in 3.5). Set `AGENT_APPROVAL_THRESHOLD` (for example `100000`, so `small` needs a human).
-2. Fund the **API wallet** (the treasury) and the **agent wallet** with testnet HBAR; send the agent wallet a little more than the jobs cost (`small` = 5 HBAR, `tiny` = 1 HBAR). Set `AGENT_PRIVATE_KEY` (an ECDSA key) and `X402_ENABLED=true`.
+2. Fund the **API wallet** (the treasury) and the **agent wallet** with testnet HBAR; send the agent wallet a little more than the jobs cost (`small` = 0.5 HBAR, `tiny` = 0.1 HBAR). Set `AGENT_PRIVATE_KEY` (an ECDSA key) and `X402_ENABLED=true`.
 3. Run `npm run hcs:create-topic` once and put `HCS_TOPIC_ID` in `.env`.
 4. Get an HTTPS URL for the API (tunnel or small server) for the World approval and the live demo link.
 5. Run the agent live once (`npm run agent -- small`) and paste the settled transaction ID and HashScan link into the README.

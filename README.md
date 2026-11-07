@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="https://mesh-592g.onrender.com"><b>Live app</b></a> ·
-  <a href="https://drive.google.com/file/d/1wpvOOErLR30L2QT_l0BdOiN8Uk6OQVxn/view?usp=sharing"><b>Demo video</b></a> ·
+  <a href="https://drive.google.com/file/d/1WnzijbZENFqZX30VJZaP5NDphxJpntYN/view?usp=sharing"><b>Demo video</b></a> ·
   <a href="docs/README.md">Docs</a> ·
   <a href="docs/TRACKS.md">Prize tracks</a>
 </p>
